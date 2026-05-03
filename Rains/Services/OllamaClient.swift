@@ -57,6 +57,49 @@ struct OllamaClient {
         }
     }
 
+    /// Creates a new server-side model based on `chat`'s configuration. Only
+    /// generation options that differ from the Ollama defaults are sent in
+    /// `parameters`, matching the Flutter app's behavior. `messages` may be
+    /// supplied to seed the conversation history of the new model.
+    func createModel(
+        _ name: String,
+        from chat: OllamaChat,
+        messages: [OllamaMessage]? = nil
+    ) async throws {
+        let diff = ChatOptionsDiff(chat.options)
+        let wireMessages: [WireMessage]? = (messages?.isEmpty == false)
+            ? messages?.map(WireMessage.init(_:))
+            : nil
+
+        let body = CreateRequest(
+            model: name,
+            from: chat.model,
+            system: (chat.systemPrompt?.isEmpty == false) ? chat.systemPrompt : nil,
+            parameters: diff.isEmpty ? nil : diff,
+            messages: wireMessages,
+            stream: false
+        )
+
+        var request = URLRequest(url: endpoint("/api/create"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.encoder.encode(body)
+
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response, body: data, modelName: chat.model)
+    }
+
+    /// Deletes a model from the Ollama server.
+    func deleteModel(_ name: String) async throws {
+        var request = URLRequest(url: endpoint("/api/delete"))
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.encoder.encode(["model": name])
+
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response, body: data, modelName: name)
+    }
+
     /// Lists installed models. Each model is enriched with capabilities from
     /// /api/show; if /api/show fails (older servers, transient errors), the
     /// model is still returned with `capabilities == nil`.
@@ -313,4 +356,72 @@ private struct TagsResponse: Decodable {
 
 private struct ShowResponse: Decodable {
     let capabilities: [String]?
+}
+
+private struct CreateRequest: Encodable {
+    let model: String
+    let from: String
+    let system: String?
+    let parameters: ChatOptionsDiff?
+    let messages: [WireMessage]?
+    let stream: Bool
+}
+
+/// Encodes only the generation options that differ from the Ollama defaults.
+/// Matches the Flutter `ApiCreateRequest.fromChat` behavior — sending the
+/// full options dict would override the base model's defaults unnecessarily.
+private struct ChatOptionsDiff: Encodable {
+    let mirostat: Int?
+    let mirostatEta: Double?
+    let mirostatTau: Double?
+    let contextSize: Int?
+    let repeatLastN: Int?
+    let repeatPenalty: Double?
+    let temperature: Double?
+    let seed: Int?
+    let tailFreeSampling: Double?
+    let maxTokens: Int?
+    let topK: Int?
+    let topP: Double?
+    let minP: Double?
+
+    init(_ options: OllamaChatOptions) {
+        let d = OllamaChatOptions()
+        self.mirostat = options.mirostat != d.mirostat ? options.mirostat : nil
+        self.mirostatEta = options.mirostatEta != d.mirostatEta ? options.mirostatEta : nil
+        self.mirostatTau = options.mirostatTau != d.mirostatTau ? options.mirostatTau : nil
+        self.contextSize = options.contextSize != d.contextSize ? options.contextSize : nil
+        self.repeatLastN = options.repeatLastN != d.repeatLastN ? options.repeatLastN : nil
+        self.repeatPenalty = options.repeatPenalty != d.repeatPenalty ? options.repeatPenalty : nil
+        self.temperature = options.temperature != d.temperature ? options.temperature : nil
+        self.seed = options.seed != d.seed ? options.seed : nil
+        self.tailFreeSampling = options.tailFreeSampling != d.tailFreeSampling ? options.tailFreeSampling : nil
+        self.maxTokens = (options.maxTokens > 0 && options.maxTokens != d.maxTokens) ? options.maxTokens : nil
+        self.topK = options.topK != d.topK ? options.topK : nil
+        self.topP = options.topP != d.topP ? options.topP : nil
+        self.minP = options.minP != d.minP ? options.minP : nil
+    }
+
+    var isEmpty: Bool {
+        mirostat == nil && mirostatEta == nil && mirostatTau == nil &&
+        contextSize == nil && repeatLastN == nil && repeatPenalty == nil &&
+        temperature == nil && seed == nil && tailFreeSampling == nil &&
+        maxTokens == nil && topK == nil && topP == nil && minP == nil
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case mirostat
+        case mirostatEta = "mirostat_eta"
+        case mirostatTau = "mirostat_tau"
+        case contextSize = "num_ctx"
+        case repeatLastN = "repeat_last_n"
+        case repeatPenalty = "repeat_penalty"
+        case temperature
+        case seed
+        case tailFreeSampling = "tfs_z"
+        case maxTokens = "num_predict"
+        case topK = "top_k"
+        case topP = "top_p"
+        case minP = "min_p"
+    }
 }

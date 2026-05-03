@@ -99,6 +99,68 @@ final class OllamaClientTests: XCTestCase {
         }
     }
 
+    func test_createModelSendsExpectedRequestBody() async throws {
+        URLProtocolStub.responses["/api/create"] = .init(body: Data())
+
+        var options = OllamaChatOptions()
+        options.temperature = 1.5
+        options.topK = 99
+        let chat = OllamaChat(model: "llama3.2", systemPrompt: "Be terse", options: options)
+
+        try await client.createModel("my-llama", from: chat)
+
+        let request = try XCTUnwrap(URLProtocolStub.requests.first)
+        XCTAssertEqual(request.httpMethod, "POST")
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(request.bodyData())) as? [String: Any])
+
+        XCTAssertEqual(body["model"] as? String, "my-llama")
+        XCTAssertEqual(body["from"] as? String, "llama3.2")
+        XCTAssertEqual(body["system"] as? String, "Be terse")
+        XCTAssertEqual(body["stream"] as? Bool, false)
+
+        let parameters = try XCTUnwrap(body["parameters"] as? [String: Any])
+        XCTAssertEqual(parameters["temperature"] as? Double, 1.5)
+        XCTAssertEqual(parameters["top_k"] as? Int, 99)
+        XCTAssertNil(parameters["mirostat"], "default values should be omitted")
+        XCTAssertNil(parameters["temperature_default"])
+    }
+
+    func test_createModelOmitsParametersWhenAllDefault() async throws {
+        URLProtocolStub.responses["/api/create"] = .init(body: Data())
+        let chat = OllamaChat(model: "llama3.2")
+
+        try await client.createModel("my-llama", from: chat)
+
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(URLProtocolStub.requests.first?.bodyData())) as? [String: Any])
+        XCTAssertNil(body["parameters"], "no diff means parameters should be absent entirely")
+        XCTAssertNil(body["system"], "no system prompt should be absent")
+        XCTAssertNil(body["messages"], "no messages should be absent")
+    }
+
+    func test_deleteModelSendsDeleteWithModelName() async throws {
+        URLProtocolStub.responses["/api/delete"] = .init(body: Data())
+
+        try await client.deleteModel("my-llama")
+
+        let request = try XCTUnwrap(URLProtocolStub.requests.first)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(request.bodyData())) as? [String: Any])
+        XCTAssertEqual(body["model"] as? String, "my-llama")
+    }
+
+    func test_deleteModelMaps404ToModelNotFound() async {
+        URLProtocolStub.responses["/api/delete"] = .init(status: 404, body: Data())
+
+        do {
+            try await client.deleteModel("ghost")
+            XCTFail("expected error")
+        } catch let error as OllamaError {
+            XCTAssertEqual(error, .modelNotFound("ghost"))
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+    }
+
     func test_listModelsCombinesTagsAndShow() async throws {
         URLProtocolStub.responses["/api/tags"] = .init(body: """
         {

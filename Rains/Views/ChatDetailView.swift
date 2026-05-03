@@ -7,6 +7,7 @@ struct ChatDetailView: View {
     @Environment(AppState.self) private var appState
 
     @State private var viewModel: ChatDetailViewModel?
+    @State private var showingConfig = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,6 +17,18 @@ struct ChatDetailView: View {
         }
         .navigationTitle(chat.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingConfig = true
+                } label: {
+                    Label("Configure", systemImage: "slider.horizontal.3")
+                }
+            }
+        }
+        .sheet(isPresented: $showingConfig) {
+            ChatConfigurationView(chat: chat)
+        }
         .onAppear {
             if viewModel == nil {
                 viewModel = ChatDetailViewModel(chat: chat, context: context, client: appState.client)
