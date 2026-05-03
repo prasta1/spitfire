@@ -1,0 +1,53 @@
+name: Rains
+configs:
+  Debug: debug
+  Release: release
+options:
+  groupSortPosition: bottom
+  transitivelyLinkDependencies: false
+settings:
+  CODE_SIGN_IDENTITY: "-"
+  CODE_SIGNING_REQUIRED: "NO"
+  CODE_SIGNING_ALLOWED: "NO"
+
+targets:
+  Rains:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Rains
+    info:
+      path: Rains/Info.plist
+      properties:
+        CFBundleDisplayName: Rains
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+      CURRENT_PROJECT_VERSION: "1"
+      MARKETING_VERSION: "0.1"
+      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.Rains
+      PRODUCT_NAME: $(TARGET_NAME)
+      SWIFT_VERSION: "5.9"
+      TARGETED_DEVICE_FAMILY: "1,2"
+
+  RainsTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RainsTests
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.RainsTests
+      SWIFT_VERSION: "5.9"
+    dependencies:
+      - target: Rains
