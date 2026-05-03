@@ -11,6 +11,7 @@ import SwiftData
 final class ChatDetailViewModel {
     let chat: ChatRecord
     var inputText: String = ""
+    var pendingImage: Data?
     var isStreaming: Bool = false
     var errorMessage: String?
 
@@ -28,11 +29,13 @@ final class ChatDetailViewModel {
     /// reply into a fresh `MessageRecord` attached to the chat.
     func send() {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isStreaming else { return }
+        let image = pendingImage
+        guard (!trimmed.isEmpty || image != nil), !isStreaming else { return }
         inputText = ""
+        pendingImage = nil
         errorMessage = nil
 
-        let userMessage = MessageRecord(content: trimmed, role: .user)
+        let userMessage = MessageRecord(content: trimmed, role: .user, imagesData: image)
         chat.messages.append(userMessage)
 
         let assistantMessage = MessageRecord(content: "", role: .assistant, model: chat.model)

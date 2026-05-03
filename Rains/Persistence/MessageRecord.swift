@@ -55,7 +55,8 @@ extension MessageRecord {
             content: message.content,
             role: message.role,
             model: message.model,
-            createdAt: message.createdAt
+            createdAt: message.createdAt,
+            imagesData: message.images?.first
         )
     }
 
@@ -64,6 +65,7 @@ extension MessageRecord {
             id: id,
             content: content,
             role: role,
+            images: imagesData.map { [$0] },
             createdAt: createdAt,
             model: model
         )

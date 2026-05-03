@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
 
@@ -8,6 +9,7 @@ struct ChatDetailView: View {
 
     @State private var viewModel: ChatDetailViewModel?
     @State private var showingConfig = false
+    @State private var pickerSelection: PhotosPickerItem?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -65,29 +67,76 @@ struct ChatDetailView: View {
     @ViewBuilder
     private var inputBar: some View {
         if let viewModel {
-            HStack(alignment: .bottom, spacing: 8) {
-                TextField("Message", text: Binding(
-                    get: { viewModel.inputText },
-                    set: { viewModel.inputText = $0 }
-                ), axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(1...4)
+            VStack(spacing: 6) {
+                pendingImagePreview(for: viewModel)
+
+                HStack(alignment: .bottom, spacing: 8) {
+                    PhotosPicker(selection: $pickerSelection, matching: .images, photoLibrary: .shared()) {
+                        Image(systemName: "photo")
+                            .font(.system(size: 22))
+                    }
                     .disabled(viewModel.isStreaming)
 
-                Button {
-                    if viewModel.isStreaming {
-                        viewModel.cancel()
-                    } else {
-                        viewModel.send()
+                    TextField("Message", text: Binding(
+                        get: { viewModel.inputText },
+                        set: { viewModel.inputText = $0 }
+                    ), axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(1...4)
+                        .disabled(viewModel.isStreaming)
+
+                    Button {
+                        if viewModel.isStreaming {
+                            viewModel.cancel()
+                        } else {
+                            viewModel.send()
+                        }
+                    } label: {
+                        Image(systemName: viewModel.isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
+                            .font(.system(size: 28))
                     }
-                } label: {
-                    Image(systemName: viewModel.isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
-                        .font(.system(size: 28))
+                    .disabled(!viewModel.isStreaming && !canSend(viewModel))
                 }
-                .disabled(!viewModel.isStreaming && viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
+            .onChange(of: pickerSelection) { _, newValue in
+                guard let item = newValue else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self) {
+                        viewModel.pendingImage = data
+                    }
+                    pickerSelection = nil
+                }
+            }
+        }
+    }
+
+    private func canSend(_ viewModel: ChatDetailViewModel) -> Bool {
+        let hasText = !viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasText || viewModel.pendingImage != nil
+    }
+
+    @ViewBuilder
+    private func pendingImagePreview(for viewModel: ChatDetailViewModel) -> some View {
+        if let data = viewModel.pendingImage, let uiImage = UIImage(data: data) {
+            HStack {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipped()
+                Spacer()
+                Button {
+                    viewModel.pendingImage = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+            }
         }
     }
 }

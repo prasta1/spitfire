@@ -7,14 +7,25 @@ struct MessageBubbleView: View {
         HStack {
             if message.role == .user { Spacer(minLength: 40) }
 
-            VStack(alignment: alignment, spacing: 4) {
-                Text(message.content.isEmpty ? " " : message.content)
-                    .textSelection(.enabled)
-                    .foregroundStyle(message.role == .user ? .white : .primary)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(bubbleBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            VStack(alignment: alignment, spacing: 6) {
+                if let imageData = message.imagesData,
+                   let uiImage = UIImage(data: imageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 240, maxHeight: 240)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
+                if !message.content.isEmpty {
+                    Text(message.content)
+                        .textSelection(.enabled)
+                        .foregroundStyle(message.role == .user ? .white : .primary)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(bubbleBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
 
                 if message.role == .system {
                     Text("system")
