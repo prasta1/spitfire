@@ -7,6 +7,7 @@ struct ChatListView: View {
     @Query(sort: \ChatRecord.createdAt, order: .reverse) private var chats: [ChatRecord]
 
     @State private var showingNewChat = false
+    @State private var showingSettings = false
 
     var body: some View {
         List(selection: $selection) {
@@ -17,6 +18,13 @@ struct ChatListView: View {
         }
         .navigationTitle("Rains")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showingNewChat = true
@@ -41,6 +49,9 @@ struct ChatListView: View {
                 try? context.save()
                 selection = chat
             }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
         }
     }
 

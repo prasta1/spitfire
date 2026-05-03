@@ -4,7 +4,7 @@ import SwiftUI
 struct ChatDetailView: View {
     @Bindable var chat: ChatRecord
     @Environment(\.modelContext) private var context
-    @Environment(\.ollamaClient) private var client
+    @Environment(AppState.self) private var appState
 
     @State private var viewModel: ChatDetailViewModel?
 
@@ -18,7 +18,7 @@ struct ChatDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if viewModel == nil {
-                viewModel = ChatDetailViewModel(chat: chat, context: context, client: client)
+                viewModel = ChatDetailViewModel(chat: chat, context: context, client: appState.client)
             }
         }
         .onDisappear { viewModel?.cancel() }

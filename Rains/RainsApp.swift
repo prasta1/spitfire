@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct RainsApp: App {
     let modelContainer: ModelContainer
+    @State private var appState = AppState()
 
     init() {
         do {
@@ -16,8 +17,20 @@ struct RainsApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.ollamaClient, OllamaClient(baseURL: AppConfiguration.serverURL))
+                .environment(appState)
+                .preferredColorScheme(appState.theme.colorScheme)
         }
         .modelContainer(modelContainer)
+    }
+}
+
+extension AppTheme {
+    /// SwiftUI ColorScheme override; nil means "follow the OS".
+    var colorScheme: SwiftUI.ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
     }
 }
