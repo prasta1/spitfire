@@ -49,6 +49,10 @@ struct ChatDetailView: View {
                             .id(message.id)
                             .contextMenu { contextMenu(for: message) }
                     }
+                    if let viewModel, viewModel.isStreaming {
+                        TypingIndicatorView()
+                            .id("typing")
+                    }
                     if let error = viewModel?.errorMessage {
                         Text(error)
                             .font(.footnote)
@@ -61,6 +65,11 @@ struct ChatDetailView: View {
             .onChange(of: chat.orderedMessages.last?.content) { _, _ in
                 guard let id = chat.orderedMessages.last?.id else { return }
                 withAnimation { proxy.scrollTo(id, anchor: .bottom) }
+            }
+            .onChange(of: viewModel?.isStreaming) { _, isStreaming in
+                if isStreaming == true {
+                    withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
+                }
             }
         }
     }

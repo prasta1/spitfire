@@ -16,7 +16,7 @@ struct ChatListView: View {
             }
             .onDelete(perform: deleteChats)
         }
-        .navigationTitle("Rains")
+        .navigationTitle("Spitfire")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
@@ -35,20 +35,16 @@ struct ChatListView: View {
         }
         .overlay {
             if chats.isEmpty {
-                ContentUnavailableView(
-                    "No chats yet",
-                    systemImage: "bubble.left.and.bubble.right",
-                    description: Text("Tap the pencil to start one.")
-                )
+                EmptyStateView(onNewChat: { _ in showingNewChat = true })
             }
         }
         .sheet(isPresented: $showingNewChat) {
-            NewChatSheet { modelName in
+            NewChatSheet(onCreate: { modelName in
                 let chat = ChatRecord(model: modelName)
                 context.insert(chat)
                 try? context.save()
                 selection = chat
-            }
+            })
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()

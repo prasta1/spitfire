@@ -3,7 +3,7 @@ import SwiftData
 
 /// Centralized factory for the app's SwiftData container so the app entry
 /// and tests build it the same way.
-enum RainsModelContainer {
+enum SpitfireModelContainer {
     static let schemaTypes: [any PersistentModel.Type] = [
         ChatRecord.self,
         MessageRecord.self,

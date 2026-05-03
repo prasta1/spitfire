@@ -2,13 +2,13 @@ import SwiftData
 import SwiftUI
 
 @main
-struct RainsApp: App {
+struct SpitfireApp: App {
     let modelContainer: ModelContainer
     @State private var appState = AppState()
 
     init() {
         do {
-            self.modelContainer = try RainsModelContainer.makeShared()
+            self.modelContainer = try SpitfireModelContainer.makeShared()
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }

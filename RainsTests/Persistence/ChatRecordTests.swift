@@ -5,7 +5,7 @@ import SwiftData
 @MainActor
 final class ChatRecordTests: XCTestCase {
     private func makeContext() throws -> ModelContext {
-        let container = try RainsModelContainer.makeInMemory()
+        let container = try SpitfireModelContainer.makeInMemory()
         return ModelContext(container)
     }
 
