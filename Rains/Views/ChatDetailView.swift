@@ -47,6 +47,7 @@ struct ChatDetailView: View {
                     ForEach(chat.orderedMessages) { message in
                         MessageBubbleView(message: message)
                             .id(message.id)
+                            .contextMenu { contextMenu(for: message) }
                     }
                     if let error = viewModel?.errorMessage {
                         Text(error)
@@ -108,6 +109,26 @@ struct ChatDetailView: View {
                     }
                     pickerSelection = nil
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func contextMenu(for message: MessageRecord) -> some View {
+        Button {
+            UIPasteboard.general.string = message.content
+        } label: {
+            Label("Copy", systemImage: "doc.on.doc")
+        }
+
+        if message.role == .assistant,
+           message.id == chat.orderedMessages.last(where: { $0.role == .assistant })?.id,
+           let viewModel,
+           !viewModel.isStreaming {
+            Button {
+                viewModel.regenerateLastAssistant()
+            } label: {
+                Label("Regenerate", systemImage: "arrow.clockwise")
             }
         }
     }

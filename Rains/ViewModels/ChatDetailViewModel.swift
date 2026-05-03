@@ -82,4 +82,41 @@ final class ChatDetailViewModel {
     func cancel() {
         streamTask?.cancel()
     }
+
+    /// Re-streams the most recent assistant message in place. The user
+    /// message immediately preceding it stays put; we just empty the
+    /// assistant content and ask the server again with the same history.
+    func regenerateLastAssistant() {
+        guard !isStreaming else { return }
+        guard let last = chat.orderedMessages.last(where: { $0.role == .assistant }) else { return }
+
+        last.content = ""
+        errorMessage = nil
+
+        let history = chat
+            .orderedMessages
+            .filter { $0.id != last.id }
+            .map { $0.toDomain() }
+        let domainChat = chat.toDomain()
+
+        isStreaming = true
+
+        streamTask = Task { [client] in
+            defer { self.isStreaming = false }
+            do {
+                let stream = client.chatStream(messages: history, in: domainChat)
+                for try await chunk in stream {
+                    try Task.checkCancellation()
+                    last.content += chunk.content
+                    if chunk.metadata?.done == true { break }
+                }
+                try? self.context.save()
+            } catch is CancellationError {
+                try? self.context.save()
+            } catch {
+                self.errorMessage = error.localizedDescription
+                try? self.context.save()
+            }
+        }
+    }
 }

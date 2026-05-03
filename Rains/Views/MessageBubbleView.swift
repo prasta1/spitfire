@@ -18,7 +18,7 @@ struct MessageBubbleView: View {
                 }
 
                 if !message.content.isEmpty {
-                    Text(message.content)
+                    Text(renderedContent)
                         .textSelection(.enabled)
                         .foregroundStyle(message.role == .user ? .white : .primary)
                         .padding(.vertical, 8)
@@ -36,6 +36,19 @@ struct MessageBubbleView: View {
 
             if message.role != .user { Spacer(minLength: 40) }
         }
+    }
+
+    /// Inline-only markdown so we get **bold**, *italic*, `code`, and links
+    /// without breaking on multi-paragraph content. Code blocks aren't
+    /// rendered specially yet — see ISSUES.md.
+    private var renderedContent: AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        )
+        if let parsed = try? AttributedString(markdown: message.content, options: options) {
+            return parsed
+        }
+        return AttributedString(message.content)
     }
 
     private var alignment: HorizontalAlignment {
