@@ -42,6 +42,13 @@ final class ChatDetailViewModel {
         chat.messages.append(assistantMessage)
         try? context.save()
 
+        // Generate title immediately after first user message (before AI responds)
+        if chat.title == "New Chat" && chat.messages.count == 2 {
+            Task {
+                await generateTitle()
+            }
+        }
+
         // Snapshot the conversation history (everything before the empty
         // assistant placeholder) so we don't include the placeholder itself
         // in the request payload.
@@ -54,23 +61,26 @@ final class ChatDetailViewModel {
         isStreaming = true
 
         streamTask = Task { [client] in
-            defer { self.isStreaming = false }
-
             do {
                 let stream = client.chatStream(messages: history, in: domainChat)
                 for try await chunk in stream {
                     try Task.checkCancellation()
                     assistantMessage.content += chunk.content
-                    if chunk.metadata?.done == true { break }
+                    if chunk.metadata?.done == true {
+                        assistantMessage.evalCount = chunk.metadata?.evalCount
+                        assistantMessage.evalDuration = chunk.metadata?.evalDuration
+                        assistantMessage.totalDuration = chunk.metadata?.totalDuration
+                        break
+                    }
                 }
                 try? self.context.save()
             } catch is CancellationError {
+                self.isStreaming = false
                 try? self.context.save()
             } catch {
+                self.isStreaming = false
                 self.errorMessage = error.localizedDescription
                 if assistantMessage.content.isEmpty {
-                    // Drop the placeholder so the user isn't left with a
-                    // confusing empty bubble after a failed request.
                     self.chat.messages.removeAll { $0.id == assistantMessage.id }
                     self.context.delete(assistantMessage)
                 }
@@ -108,7 +118,12 @@ final class ChatDetailViewModel {
                 for try await chunk in stream {
                     try Task.checkCancellation()
                     last.content += chunk.content
-                    if chunk.metadata?.done == true { break }
+                    if chunk.metadata?.done == true {
+                        last.evalCount = chunk.metadata?.evalCount
+                        last.evalDuration = chunk.metadata?.evalDuration
+                        last.totalDuration = chunk.metadata?.totalDuration
+                        break
+                    }
                 }
                 try? self.context.save()
             } catch is CancellationError {
@@ -118,5 +133,41 @@ final class ChatDetailViewModel {
                 try? self.context.save()
             }
         }
+    }
+
+    /// Generates a title after the first AI response completes.
+    /// Runs in background - non-blocking.
+    func generateTitle() async {
+        guard chat.title == "New Chat" else { return }
+
+        guard let userMsg = chat.orderedMessages.first(where: { $0.role == .user })?.content,
+              !userMsg.isEmpty else {
+            setFallbackTitle()
+            return
+        }
+
+        let prompt = "Generate a short title (3-5 words) for a conversation that starts with: \"\(userMsg)\". Only return the title."
+
+        do {
+            let response = try await client.generate(prompt: prompt, in: chat.toDomain())
+            let title = response.content
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .prefix(50)
+            if !title.isEmpty {
+                chat.title = String(title)
+                try? context.save()
+            } else {
+                setFallbackTitle()
+            }
+        } catch {
+            setFallbackTitle()
+        }
+    }
+
+    private func setFallbackTitle() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d/yy"
+        chat.title = "New Chat - \(formatter.string(from: Date()))"
+        try? context.save()
     }
 }

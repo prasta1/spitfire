@@ -13,7 +13,7 @@ struct ChatConfigurationView: View {
 
     enum ModelLoadState: Equatable {
         case loading
-        case loaded([String])
+        case loaded([OllamaModel])
         case failed
     }
 
@@ -69,10 +69,10 @@ struct ChatConfigurationView: View {
                     Spacer()
                     ProgressView()
                 }
-            case .loaded(let names) where !names.isEmpty:
+            case .loaded(let models) where !models.isEmpty:
                 Picker("Model", selection: $chat.model) {
-                    ForEach(modelChoices(installed: names), id: \.self) { name in
-                        Text(name).tag(name)
+                    ForEach(modelChoices(installed: models)) { model in
+                        ModelLabel(model: model).tag(model.name)
                     }
                 }
             default:
@@ -92,12 +92,16 @@ struct ChatConfigurationView: View {
 
     /// Always include the chat's current model so we can show it even if
     /// the user uninstalls it server-side or swapped server URL.
-    private func modelChoices(installed: [String]) -> [String] {
-        var names = installed
-        if !names.contains(chat.model) {
-            names.insert(chat.model, at: 0)
+    private func modelChoices(installed: [OllamaModel]) -> [OllamaModel] {
+        var models = installed
+        if !models.contains(where: { $0.name == chat.model }) {
+            models.insert(OllamaModel(
+                name: chat.model, model: chat.model,
+                modifiedAt: .distantPast, size: 0, digest: chat.model,
+                parameterSize: "", capabilities: nil
+            ), at: 0)
         }
-        return names
+        return models
     }
 
     // MARK: System prompt
@@ -246,7 +250,8 @@ struct ChatConfigurationView: View {
         modelLoadState = .loading
         do {
             let models = try await appState.client.listModels()
-            modelLoadState = .loaded(models.map(\.name).sorted())
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            modelLoadState = .loaded(models)
         } catch {
             modelLoadState = .failed
         }

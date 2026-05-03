@@ -66,6 +66,127 @@ while pushing through phases. Updated as items land or get superseded.
 14. **Chat title is "New Chat" forever.** Flutter app has a generate-title
     flow (uses /api/generate with a fixed prompt). Not ported.
 
+## Code Review - open code-minimax
+
+Issues identified during code review. 2025-05-03.
+
+### High Priority
+
+**1. Naming Inconsistency**
+
+- **Location**: `Rains/RainsApp.swift:5`
+- **Observation**: App struct is named `SpitfireApp` but folder is `Rains`. Project is named `reins-swift`. This causes confusion when navigating the codebase.
+- **Risk**: High - Confuses contributors, IDE navigation may not work as expected
+- **Suggested Approach**: Rename `SpitfireApp` to `RainsApp` in `RainsApp.swift:5` to match the folder structure. Alternatively, rename the folder to `Spitfire` for consistency with the app name.
+- **Tradeoff**: Renaming folder requires updating all import statements and project references.
+
+**2. Unsafe Optionals & Silent Failures**
+
+- **Location**: `Rains/Services/OllamaClient.swift:9`, `Rains/RainsApp.swift:10`
+- **Observation**: Uses force-unwrap `URL(string: "http://localhost:11434")!` and `try!` for `ModelContainer`. These will crash at runtime if the string is ever malformed.
+- **Risk**: High - No graceful degradation, app crashes on startup with malformed URL
+- **Suggested Approach**:
+  ```swift
+  // In OllamaClient.swift, replace:
+  init(baseURL: URL = URL(string: "http://localhost:11434")!, ...)
+  // With:
+  private static let defaultBaseURL = URL(string: "http://localhost:11434")!
+  init(baseURL: URL? = nil, ...) {
+      self.baseURL = baseURL ?? Self.defaultBaseURL  // safe fallback
+  }
+  ```
+  For `RainsApp.swift`, wrap initialization in do-catch and show alert for user.
+- **Related**: Overlaps with issue #8 (timeouts) - both involve network reliability.
+
+### Medium Priority
+
+**3. Missing Input Validation**
+
+- **Location**: `Rains/Views/SettingsView.swift:98`
+- **Observation**: URL validation only checks `scheme != nil`, doesn't validate format (e.g., `--` in hostname) or test reachability before saving.
+- **Risk**: Medium - User can enter invalid URLs, no feedback until they try to chat
+- **Suggested Approach**: Add URL validation in `commitURL()`:
+  ```swift
+  private func commitURL() {
+      let trimmed = urlInput.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard let url = URL(string: trimmed,
+            let scheme = url.scheme,
+            scheme != "http" && scheme != "https",
+            url.host != nil else { return }  // invalid
+      if url != appState.serverURL {
+          appState.serverURL = url
+          connectionState = .idle
+      }
+  }
+  ```
+
+**4. Potential Race Condition with Stream**
+
+- **Location**: `Rains/ViewModels/ChatDetailViewModel.swift:56`, `Rains/Configuration/AppState.swift:36`
+- **Observation**: Stream task captures `[client]` at init, but `AppState.serverURL` can replace the client object while streaming is in progress. In-flight requests use stale client.
+- **Risk**: Medium - User changes URL mid-stream, previous stream keeps old client
+- **Suggested Approach**: Make `OllamaClient` a class (reference type) instead of struct, so all callers share the same instance. Or pass a stable client ID and validate before processing responses.
+- **Related**: See existing issue #7 - "OllamaClient in `ChatDetailViewModel` is captured at init" - same root cause, expand on that issue.
+
+**5. listModels Performance**
+
+- **Location**: `Rains/Services/OllamaClient.swift:113-137`
+- **Observation**: `listModels()` calls `/api/show` sequentially for each model to fetch capabilities. With many models, this is slow.
+- **Risk**: Medium - User experiences long load times when selecting model
+- **Suggested Approach**: Use `withThrowingTaskGroup(of:)` to parallelize the `/api/show` calls:
+  ```swift
+  return try await withThrowingTaskGroup(of: (Int, OllamaModel).self) { group in
+      for (index, tag) in tags.models.enumerated() {
+          group.addTask {
+              let capabilities = try? await self.showCapabilities(modelName: tag.name)
+              // ... build model
+          }
+      }
+      // collect results
+  }
+  ```
+
+**6. Missing Accessibility Labels**
+
+- **Location**: `Rains/Views/ChatDetailView.swift`, `Rains/Views/MessageBubbleView.swift`
+- **Observation**: No `.accessibilityLabel()` or `.accessibilityHint()` on interactive elements. PhotosPicker attach button has no label.
+- **Risk**: Medium - App not fully accessible via VoiceOver
+- **Suggested Approach**: Add accessibility to key elements:
+  ```swift
+  PhotosPicker(..., label: { Text("Attach photo") })
+      .accessibilityLabel("Attach photo to message")
+  ```
+
+**7. Network Timeouts Not Configured**
+
+- **Location**: `Rains/Services/OllamaClient.swift:7`
+- **Observation**: Uses `URLSession.shared` with default timeouts (60s). No custom configuration for slow/unreliable connections.
+- **Risk**: Medium - Requests may timeout on large model cold-start or slow connections
+- **Suggested Approach**: Create custom session with explicit timeouts:
+  ```swift
+  static let session: URLSession = {
+      let config = URLSessionConfiguration.default
+      config.timeoutIntervalForRequest = 120      // 2 min per request
+      config.timeoutIntervalForResource = 300     // 5 min for streaming
+      config.waitsForConnectivity = true
+      return URLSession(configuration: config)
+  }()
+  ```
+  Consider adding configurable timeouts via Settings for power users.
+
+### Low Priority
+
+**8. Verbose Options Storage**
+
+- **Location**: `Rains/Persistence/ChatRecord.swift:23-35`
+- **Observation**: Stores 12 `OllamaChatOptions` as flattened scalar properties. Verbose but ensures SwiftData reliability (see issue #1 above).
+- **Risk**: Low - Works correctly, just verbose
+- **Suggested Approach**: Keep current approach for iOS 17/18 compatibility. Future iOS versions may fix SwiftData Codable issues, revisit then.
+
+---
+
+**Summary**: 2 high, 5 medium, 1 low priority items. Items #2 (unsafe optionals) and #4 (race condition) should be addressed soonest as they can cause crashes.
+
 ## Done (struck through for history)
 
 - ~~`createModel` / `deleteModel` Ollama endpoints.~~ Phase 5.
@@ -73,3 +194,16 @@ while pushing through phases. Updated as items land or get superseded.
 - ~~Markdown rendering, edit/regenerate, app icon, accent color.~~
   Markdown (inline) + regenerate-last + accent color landed in Phase 7;
   app icon and full edit flow remain (#8, #10).
+- ~~Splash screen with background image + logo.~~ Phase 8.
+
+## Future / Proposed
+
+15. **OpenRouter integration.** Add OpenRouter (cloud LLM models) as an
+    alternative provider alongside Ollama (local models). Users can switch
+    between providers in Settings.
+
+    - **Approach**: Protocol-based `LLMService` with `OllamaClient` and
+      `OpenRouterClient` implementations
+    - **Storage**: API key in Keychain (not UserDefaults)
+    - **Model list**: Fetch from OpenRouter API, filter to FREE models only
+    - **Files affected**: 7 files (see detailed plan in project docs)

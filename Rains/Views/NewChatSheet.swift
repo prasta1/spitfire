@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NewChatSheet: View {
     let onCreate: (String) -> Void
+    var initialMessage: String = ""
 
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
@@ -13,8 +14,13 @@ struct NewChatSheet: View {
 
     enum LoadState: Equatable {
         case loading
-        case loaded([String])
+        case loaded([OllamaModel])
         case failed(String)
+    }
+
+    init(onCreate: @escaping (String) -> Void, initialMessage: String = "") {
+        self.onCreate = onCreate
+        self.initialMessage = initialMessage
     }
 
     var body: some View {
@@ -71,13 +77,13 @@ struct NewChatSheet: View {
                 Spacer()
                 ProgressView()
             }
-        case .loaded(let names):
-            if names.isEmpty {
+        case .loaded(let models):
+            if models.isEmpty {
                 Text("No models installed on the server").foregroundStyle(.secondary)
             } else {
                 Picker("Model", selection: $selectedModel) {
-                    ForEach(names, id: \.self) { name in
-                        Text(name).tag(name)
+                    ForEach(models) { model in
+                        ModelLabel(model: model).tag(model.name)
                     }
                 }
             }
@@ -123,10 +129,10 @@ struct NewChatSheet: View {
         loadState = .loading
         do {
             let models = try await appState.client.listModels()
-            let names = models.map(\.name).sorted()
-            loadState = .loaded(names)
-            if selectedModel.isEmpty, let first = names.first {
-                selectedModel = first
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            loadState = .loaded(models)
+            if selectedModel.isEmpty, let first = models.first {
+                selectedModel = first.name
             }
         } catch {
             loadState = .failed(error.localizedDescription)

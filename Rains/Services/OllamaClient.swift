@@ -130,7 +130,10 @@ struct OllamaClient {
             for try await (index, model) in group {
                 slots[index] = model
             }
-            return slots.compactMap { $0 }
+            return slots.compactMap { $0 }.filter { model in
+                guard let caps = model.capabilities else { return true }
+                return caps.completion
+            }
         }
     }
 

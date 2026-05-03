@@ -22,6 +22,7 @@ struct ModelCapabilities: Equatable {
     var tools: Bool = false
     var embedding: Bool = false
     var thinking: Bool = false
+    var audio: Bool = false
 
     init(_ list: [String] = []) {
         self.completion = list.contains("completion")
@@ -29,5 +30,17 @@ struct ModelCapabilities: Equatable {
         self.tools = list.contains("tools")
         self.embedding = list.contains("embedding")
         self.thinking = list.contains("thinking")
+        self.audio = list.contains("audio")
+    }
+
+    /// SF Symbol name/label pairs for active capabilities (excludes completion as near-universal).
+    var badgeSymbols: [(symbol: String, label: String)] {
+        var result: [(String, String)] = []
+        if vision   { result.append(("eye", "Vision")) }
+        if audio    { result.append(("waveform", "Audio")) }
+        if tools    { result.append(("wrench", "Tools")) }
+        if thinking { result.append(("brain", "Thinking")) }
+        if embedding { result.append(("square.grid.3x3", "Embedding")) }
+        return result
     }
 }

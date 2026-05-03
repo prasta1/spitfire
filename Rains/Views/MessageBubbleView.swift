@@ -27,6 +27,12 @@ struct MessageBubbleView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
 
+                if message.role == .assistant, let stats = message.statsText {
+                    Text(stats)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
                 if message.role == .system {
                     Text("system")
                         .font(.caption2)
