@@ -14,6 +14,39 @@ struct OllamaModel: Identifiable, Equatable {
     var id: String { digest }
 }
 
+/// A model currently loaded in Ollama's VRAM, from /api/ps.
+struct RunningModel: Identifiable, Equatable {
+    let name: String
+    let sizeVram: Int
+    let parameterSize: String
+    let quantization: String
+
+    var id: String { name }
+
+    /// Human-readable VRAM usage, e.g. "14.9 GB".
+    var formattedVram: String {
+        let gb = Double(sizeVram) / 1_073_741_824
+        if gb >= 1 {
+            return String(format: "%.1f GB", gb)
+        }
+        let mb = Double(sizeVram) / 1_048_576
+        return String(format: "%.0f MB", mb)
+    }
+}
+
+/// Progress update from /api/pull streaming response.
+struct PullProgress: Equatable {
+    let status: String
+    let total: Int64
+    let completed: Int64
+
+    /// Fraction complete (0.0–1.0), or nil if totals aren't available yet.
+    var fraction: Double? {
+        guard total > 0 else { return nil }
+        return Double(completed) / Double(total)
+    }
+}
+
 /// Capabilities reported by /api/show. Older Ollama versions don't return
 /// this field; missing data resolves to all-false.
 struct ModelCapabilities: Equatable {

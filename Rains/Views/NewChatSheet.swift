@@ -11,6 +11,20 @@ struct NewChatSheet: View {
     @State private var selectedModel: String = ""
     @State private var manualEntry: Bool = false
     @State private var manualName: String = ""
+    @State private var runningModels: [RunningModel] = []
+    @State private var unloadingModel: String?
+    @State private var pullName: String = ""
+    @State private var pullState: PullState = .idle
+    @State private var registryModels: [String] = []
+    @State private var searchTask: Task<Void, Never>?
+
+    enum PullState: Equatable {
+        case idle
+        case pulling(String)
+        case progress(String, Double)
+        case done
+        case failed(String)
+    }
 
     enum LoadState: Equatable {
         case loading
@@ -46,12 +60,11 @@ struct NewChatSheet: View {
                     }
                 }
 
-                if !manualEntry, case .loaded = loadState {
-                    Section {
-                        Button("Type a model name instead") { manualEntry = true }
-                            .font(.footnote)
-                    }
+                if !runningModels.isEmpty {
+                    loadedModelsSection
                 }
+
+                pullModelSection
             }
             .navigationTitle("New Chat")
             .navigationBarTitleDisplayMode(.inline)
@@ -64,7 +77,7 @@ struct NewChatSheet: View {
                         .disabled(!canCreate)
                 }
             }
-            .task { await loadModels() }
+            .task { await loadAll() }
         }
     }
 
@@ -83,7 +96,10 @@ struct NewChatSheet: View {
             } else {
                 Picker("Model", selection: $selectedModel) {
                     ForEach(models) { model in
-                        ModelLabel(model: model).tag(model.name)
+                        ModelLabel(
+                            model: model,
+                            isLoaded: runningNames.contains(model.name)
+                        ).tag(model.name)
                     }
                 }
             }
@@ -94,6 +110,160 @@ struct NewChatSheet: View {
                 Text(message).font(.footnote).foregroundStyle(.secondary)
             }
         }
+    }
+
+    @ViewBuilder
+    private var loadedModelsSection: some View {
+        Section {
+            ForEach(runningModels) { running in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(.green)
+                                .frame(width: 6, height: 6)
+                            Text(running.name)
+                                .lineLimit(1)
+                        }
+                        Text("\(running.parameterSize) · \(running.quantization) · \(running.formattedVram)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if unloadingModel == running.name {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Button {
+                            Task { await unload(running.name) }
+                        } label: {
+                            Image(systemName: "xmark.circle")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            }
+        } header: {
+            Text("Loaded in Memory")
+        } footer: {
+            let totalVram = runningModels.reduce(0) { $0 + $1.sizeVram }
+            let gb = Double(totalVram) / 1_073_741_824
+            Text(String(format: "%.1f GB VRAM in use", gb))
+        }
+    }
+
+    // MARK: - Pull Model
+
+    @ViewBuilder
+    private var pullModelSection: some View {
+        Section {
+            TextField("Search or enter model name", text: $pullName)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .disabled(isPulling)
+                .onChange(of: pullName) { _, newValue in
+                    debounceSearch(query: newValue)
+                }
+
+            if !filteredSuggestions.isEmpty && !isPulling {
+                suggestionsView
+            }
+
+            Button {
+                Task { await pullModel() }
+            } label: {
+                HStack {
+                    Text("Pull Model")
+                    Spacer()
+                    pullStatusView
+                }
+            }
+            .disabled(pullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPulling)
+
+            if case .progress(let status, let fraction) = pullState {
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: fraction)
+                    Text(status)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            } else if case .pulling(let status) = pullState {
+                HStack {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if case .failed(let message) = pullState {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+        } header: {
+            Text("Pull New Model")
+        } footer: {
+            Text("Search the Ollama registry or enter an exact model name.")
+        }
+    }
+
+    @ViewBuilder
+    private var suggestionsView: some View {
+        let suggestions = filteredSuggestions
+        FlowLayout(spacing: 6) {
+            ForEach(suggestions, id: \.self) { name in
+                Button {
+                    pullName = name
+                } label: {
+                    Text(name)
+                        .font(.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color(.tertiarySystemFill))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pullStatusView: some View {
+        switch pullState {
+        case .idle, .failed: EmptyView()
+        case .pulling, .progress: ProgressView().controlSize(.small)
+        case .done: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+        }
+    }
+
+    /// Suggestions filtered by current input, excluding already-installed models.
+    private var filteredSuggestions: [String] {
+        let installed: Set<String>
+        if case .loaded(let models) = loadState {
+            installed = Set(models.map(\.name))
+        } else {
+            installed = []
+        }
+
+        let query = pullName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return registryModels.filter { name in
+            !installed.contains(name) && !installed.contains("\(name):latest")
+                && (query.isEmpty || name.localizedCaseInsensitiveContains(query))
+        }
+    }
+
+    private var isPulling: Bool {
+        switch pullState {
+        case .pulling, .progress: return true
+        default: return false
+        }
+    }
+
+    private var runningNames: Set<String> {
+        Set(runningModels.map(\.name))
     }
 
     private var footerText: String {
@@ -125,6 +295,15 @@ struct NewChatSheet: View {
         dismiss()
     }
 
+    // MARK: - Data Loading
+
+    private func loadAll() async {
+        async let modelsTask: () = loadModels()
+        async let runningTask: () = loadRunning()
+        async let registryTask: () = loadRegistry()
+        _ = await (modelsTask, runningTask, registryTask)
+    }
+
     private func loadModels() async {
         loadState = .loading
         do {
@@ -137,5 +316,119 @@ struct NewChatSheet: View {
         } catch {
             loadState = .failed(error.localizedDescription)
         }
+    }
+
+    private func loadRunning() async {
+        do {
+            runningModels = try await appState.client.listRunning()
+        } catch {
+            runningModels = []
+        }
+    }
+
+    private func loadRegistry() async {
+        registryModels = await OllamaClient.searchRegistry()
+    }
+
+    private func debounceSearch(query: String) {
+        searchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            // Reset to popular when cleared
+            if trimmed.isEmpty {
+                searchTask = Task {
+                    registryModels = await OllamaClient.searchRegistry()
+                }
+            }
+            return
+        }
+        searchTask = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            registryModels = await OllamaClient.searchRegistry(query: trimmed)
+        }
+    }
+
+    private func pullModel() async {
+        let name = pullName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        pullState = .pulling("Starting…")
+
+        do {
+            let stream = appState.client.pullModel(name)
+            for try await progress in stream {
+                if let fraction = progress.fraction {
+                    pullState = .progress(progress.status, fraction)
+                } else {
+                    pullState = .pulling(progress.status)
+                }
+            }
+            pullState = .done
+            pullName = ""
+            await loadModels()
+        } catch {
+            pullState = .failed(error.localizedDescription)
+        }
+    }
+
+    private func unload(_ name: String) async {
+        unloadingModel = name
+        do {
+            try await appState.client.unloadModel(name)
+            runningModels.removeAll { $0.name == name }
+        } catch {
+            // Silently fail — model may have already been unloaded
+        }
+        unloadingModel = nil
+    }
+}
+
+// MARK: - FlowLayout
+
+/// Simple horizontal wrapping layout for suggestion chips.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = computeRows(proposal: proposal, subviews: subviews)
+        var height: CGFloat = 0
+        for (i, row) in rows.enumerated() {
+            let rowHeight = row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
+            height += rowHeight
+            if i < rows.count - 1 { height += spacing }
+        }
+        return CGSize(width: proposal.width ?? 0, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = computeRows(proposal: proposal, subviews: subviews)
+        var y = bounds.minY
+        for row in rows {
+            let rowHeight = row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
+            var x = bounds.minX
+            for subview in row {
+                let size = subview.sizeThatFits(.unspecified)
+                subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += rowHeight + spacing
+        }
+    }
+
+    private func computeRows(proposal: ProposedViewSize, subviews: Subviews) -> [[LayoutSubviews.Element]] {
+        let maxWidth = proposal.width ?? .infinity
+        var rows: [[LayoutSubviews.Element]] = [[]]
+        var currentWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if currentWidth + size.width > maxWidth && !rows[rows.count - 1].isEmpty {
+                rows.append([])
+                currentWidth = 0
+            }
+            rows[rows.count - 1].append(subview)
+            currentWidth += size.width + spacing
+        }
+        return rows
     }
 }

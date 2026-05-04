@@ -137,6 +137,106 @@ struct OllamaClient {
         }
     }
 
+    /// Returns models currently loaded in Ollama's VRAM.
+    func listRunning() async throws -> [RunningModel] {
+        let (data, response) = try await session.data(for: URLRequest(url: endpoint("/api/ps")))
+        try validate(response: response, body: data, modelName: nil)
+        let ps = try Self.decoder.decode(PsResponse.self, from: data)
+        return ps.models.map { m in
+            RunningModel(
+                name: m.name,
+                sizeVram: m.sizeVram,
+                parameterSize: m.details.parameterSize,
+                quantization: m.details.quantizationLevel
+            )
+        }
+    }
+
+    /// Streams pull progress for a model from /api/pull.
+    func pullModel(_ name: String) -> AsyncThrowingStream<PullProgress, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    var request = URLRequest(url: endpoint("/api/pull"))
+                    request.httpMethod = "POST"
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.httpBody = try Self.encoder.encode(PullRequest(model: name))
+
+                    let (bytes, response) = try await session.bytes(for: request)
+                    try validate(response: response, body: nil, modelName: name)
+
+                    for try await line in bytes.lines {
+                        try Task.checkCancellation()
+                        guard !line.isEmpty, let data = line.data(using: .utf8) else { continue }
+                        let chunk = try Self.decoder.decode(PullChunk.self, from: data)
+                        if let error = chunk.error {
+                            throw OllamaError.http(status: 0, body: error)
+                        }
+                        let progress = PullProgress(
+                            status: chunk.status,
+                            total: chunk.total ?? 0,
+                            completed: chunk.completed ?? 0
+                        )
+                        continuation.yield(progress)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Searches the Ollama registry (ollama.com) for model names matching a query.
+    /// Falls back to a hardcoded popular list on failure.
+    static func searchRegistry(query: String = "") async -> [String] {
+        let fallback = [
+            "llama3.2", "gemma4", "qwen3.5", "mistral", "deepseek-v4-flash",
+            "phi4", "qwen3-coder", "llama4", "gemma3", "command-r"
+        ]
+
+        let urlString: String
+        if query.isEmpty {
+            urlString = "https://ollama.com/search"
+        } else {
+            let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+            urlString = "https://ollama.com/search?q=\(encoded)"
+        }
+        guard let url = URL(string: urlString) else { return fallback }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            guard let html = String(data: data, encoding: .utf8) else { return fallback }
+            let pattern = try NSRegularExpression(pattern: #"href="/library/([^"]+)""#)
+            let matches = pattern.matches(in: html, range: NSRange(html.startIndex..., in: html))
+            var seen = Set<String>()
+            var results: [String] = []
+            for match in matches {
+                if let range = Range(match.range(at: 1), in: html) {
+                    let name = String(html[range])
+                    if seen.insert(name).inserted {
+                        results.append(name)
+                    }
+                }
+            }
+            return results.isEmpty ? fallback : results
+        } catch {
+            return fallback
+        }
+    }
+
+    /// Unloads a model from VRAM by sending a generate request with keep_alive=0.
+    func unloadModel(_ name: String) async throws {
+        var request = URLRequest(url: endpoint("/api/generate"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.encoder.encode(UnloadRequest(model: name))
+
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response, body: data, modelName: name)
+    }
+
     // MARK: Internals
 
     private func showCapabilities(modelName: String) async throws -> ModelCapabilities {
@@ -359,6 +459,54 @@ private struct TagsResponse: Decodable {
 
 private struct ShowResponse: Decodable {
     let capabilities: [String]?
+}
+
+private struct PsResponse: Decodable {
+    let models: [PsModel]
+
+    struct PsModel: Decodable {
+        let name: String
+        let sizeVram: Int
+        let details: Details
+
+        enum CodingKeys: String, CodingKey {
+            case name, details
+            case sizeVram = "size_vram"
+        }
+
+        struct Details: Decodable {
+            let parameterSize: String
+            let quantizationLevel: String
+
+            enum CodingKeys: String, CodingKey {
+                case parameterSize = "parameter_size"
+                case quantizationLevel = "quantization_level"
+            }
+        }
+    }
+}
+
+private struct PullRequest: Encodable {
+    let model: String
+    let stream: Bool = true
+}
+
+private struct PullChunk: Decodable {
+    let status: String
+    let digest: String?
+    let total: Int64?
+    let completed: Int64?
+    let error: String?
+}
+
+private struct UnloadRequest: Encodable {
+    let model: String
+    let keepAlive: Int = 0
+
+    enum CodingKeys: String, CodingKey {
+        case model
+        case keepAlive = "keep_alive"
+    }
 }
 
 private struct CreateRequest: Encodable {
