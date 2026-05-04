@@ -15,7 +15,7 @@ struct NewChatSheet: View {
     @State private var unloadingModel: String?
     @State private var pullName: String = ""
     @State private var pullState: PullState = .idle
-    @State private var registryModels: [String] = []
+    @State private var registryModels: [RegistryModel] = []
     @State private var searchTask: Task<Void, Never>?
 
     enum PullState: Equatable {
@@ -158,13 +158,24 @@ struct NewChatSheet: View {
     @ViewBuilder
     private var pullModelSection: some View {
         Section {
-            TextField("Search or enter model name", text: $pullName)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .disabled(isPulling)
-                .onChange(of: pullName) { _, newValue in
-                    debounceSearch(query: newValue)
+            HStack {
+                TextField("Search or enter model name", text: $pullName)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .disabled(isPulling)
+                    .onChange(of: pullName) { _, newValue in
+                        debounceSearch(query: newValue)
+                    }
+                if !pullName.isEmpty && !isPulling {
+                    Button {
+                        pullName = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
+            }
 
             if !filteredSuggestions.isEmpty && !isPulling {
                 suggestionsView
@@ -213,20 +224,37 @@ struct NewChatSheet: View {
     @ViewBuilder
     private var suggestionsView: some View {
         let suggestions = filteredSuggestions
-        FlowLayout(spacing: 6) {
-            ForEach(suggestions, id: \.self) { name in
-                Button {
-                    pullName = name
-                } label: {
-                    Text(name)
-                        .font(.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color(.tertiarySystemFill))
-                        .clipShape(Capsule())
+        ForEach(suggestions) { model in
+            Button {
+                pullName = model.name
+            } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Text(model.name)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        ForEach(model.badgeSymbols, id: \.symbol) { badge in
+                            Image(systemName: badge.symbol)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    HStack(spacing: 6) {
+                        if !model.sizes.isEmpty {
+                            Text(model.sizesLabel)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if !model.description.isEmpty {
+                            Text(model.description)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -240,7 +268,7 @@ struct NewChatSheet: View {
     }
 
     /// Suggestions filtered by current input, excluding already-installed models.
-    private var filteredSuggestions: [String] {
+    private var filteredSuggestions: [RegistryModel] {
         let installed: Set<String>
         if case .loaded(let models) = loadState {
             installed = Set(models.map(\.name))
@@ -249,9 +277,9 @@ struct NewChatSheet: View {
         }
 
         let query = pullName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return registryModels.filter { name in
-            !installed.contains(name) && !installed.contains("\(name):latest")
-                && (query.isEmpty || name.localizedCaseInsensitiveContains(query))
+        return registryModels.filter { model in
+            !installed.contains(model.name) && !installed.contains("\(model.name):latest")
+                && (query.isEmpty || model.name.localizedCaseInsensitiveContains(query))
         }
     }
 

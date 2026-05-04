@@ -47,6 +47,31 @@ struct PullProgress: Equatable {
     }
 }
 
+/// A model available in the Ollama registry (from ollama.com search).
+struct RegistryModel: Identifiable, Equatable {
+    let name: String
+    let description: String
+    let sizes: [String]
+    let capabilities: [String]
+
+    var id: String { name }
+
+    /// Formatted sizes string, e.g. "3B, 8B, 30B"
+    var sizesLabel: String {
+        sizes.map { $0.uppercased() }.joined(separator: ", ")
+    }
+
+    /// Capability badges reusing the same SF Symbol mapping.
+    var badgeSymbols: [(symbol: String, label: String)] {
+        var result: [(String, String)] = []
+        if capabilities.contains("vision")   { result.append(("eye", "Vision")) }
+        if capabilities.contains("audio")    { result.append(("waveform", "Audio")) }
+        if capabilities.contains("tools")    { result.append(("wrench", "Tools")) }
+        if capabilities.contains("thinking") { result.append(("brain", "Thinking")) }
+        return result
+    }
+}
+
 /// Capabilities reported by /api/show. Older Ollama versions don't return
 /// this field; missing data resolves to all-false.
 struct ModelCapabilities: Equatable {

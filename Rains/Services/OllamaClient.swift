@@ -188,12 +188,21 @@ struct OllamaClient {
         }
     }
 
-    /// Searches the Ollama registry (ollama.com) for model names matching a query.
-    /// Falls back to a hardcoded popular list on failure.
-    static func searchRegistry(query: String = "") async -> [String] {
-        let fallback = [
-            "llama3.2", "gemma4", "qwen3.5", "mistral", "deepseek-v4-flash",
-            "phi4", "qwen3-coder", "llama4", "gemma3", "command-r"
+    /// Searches the Ollama registry (ollama.com) for models matching a query.
+    /// Returns rich metadata (sizes, capabilities, description). Falls back to
+    /// a hardcoded popular list on failure.
+    static func searchRegistry(query: String = "") async -> [RegistryModel] {
+        let fallback: [RegistryModel] = [
+            RegistryModel(name: "llama3.2", description: "", sizes: ["1b", "3b"], capabilities: ["tools"]),
+            RegistryModel(name: "gemma4", description: "", sizes: ["12b", "27b"], capabilities: ["vision", "tools", "thinking"]),
+            RegistryModel(name: "qwen3.5", description: "", sizes: ["9b", "32b"], capabilities: ["vision", "tools", "thinking"]),
+            RegistryModel(name: "mistral", description: "", sizes: ["7b"], capabilities: ["tools"]),
+            RegistryModel(name: "phi4", description: "", sizes: ["14b"], capabilities: ["tools"]),
+            RegistryModel(name: "deepseek-r1", description: "", sizes: ["7b", "14b", "32b", "70b"], capabilities: ["thinking"]),
+            RegistryModel(name: "qwen3-coder", description: "", sizes: ["8b", "30b"], capabilities: ["tools", "thinking"]),
+            RegistryModel(name: "llama4", description: "", sizes: ["109b"], capabilities: ["vision", "tools"]),
+            RegistryModel(name: "gemma3", description: "", sizes: ["1b", "4b", "12b", "27b"], capabilities: ["vision", "tools", "thinking"]),
+            RegistryModel(name: "command-r", description: "", sizes: ["35b"], capabilities: ["tools"]),
         ]
 
         let urlString: String
@@ -208,17 +217,51 @@ struct OllamaClient {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             guard let html = String(data: data, encoding: .utf8) else { return fallback }
-            let pattern = try NSRegularExpression(pattern: #"href="/library/([^"]+)""#)
-            let matches = pattern.matches(in: html, range: NSRange(html.startIndex..., in: html))
+
+            // Split HTML into blocks per model
+            let blocks = html.components(separatedBy: "href=\"/library/")
             var seen = Set<String>()
-            var results: [String] = []
-            for match in matches {
-                if let range = Range(match.range(at: 1), in: html) {
-                    let name = String(html[range])
-                    if seen.insert(name).inserted {
-                        results.append(name)
-                    }
+            var results: [RegistryModel] = []
+
+            for block in blocks.dropFirst() {
+                guard let nameEnd = block.firstIndex(of: "\"") else { continue }
+                let name = String(block[block.startIndex..<nameEnd])
+                guard seen.insert(name).inserted else { continue }
+
+                let context = String(block.prefix(3000))
+
+                // Extract sizes from x-test-size spans
+                let sizePattern = try NSRegularExpression(pattern: #"x-test-size[^>]*>([^<]+)<"#)
+                let sizeMatches = sizePattern.matches(in: context, range: NSRange(context.startIndex..., in: context))
+                let sizes = sizeMatches.compactMap { match -> String? in
+                    guard let range = Range(match.range(at: 1), in: context) else { return nil }
+                    return String(context[range]).trimmingCharacters(in: .whitespaces)
                 }
+
+                // Extract capabilities from x-test-cap spans
+                let capPattern = try NSRegularExpression(pattern: #"x-test-cap[^>]*>([^<]+)<"#)
+                let capMatches = capPattern.matches(in: context, range: NSRange(context.startIndex..., in: context))
+                let caps = capMatches.compactMap { match -> String? in
+                    guard let range = Range(match.range(at: 1), in: context) else { return nil }
+                    return String(context[range]).trimmingCharacters(in: .whitespaces)
+                }
+
+                // Extract description
+                let descPattern = try NSRegularExpression(pattern: #"text-neutral-800[^>]*>([^<]{10,})"#)
+                let descMatch = descPattern.firstMatch(in: context, range: NSRange(context.startIndex..., in: context))
+                let desc: String
+                if let descMatch, let range = Range(descMatch.range(at: 1), in: context) {
+                    desc = String(context[range]).trimmingCharacters(in: .whitespaces)
+                } else {
+                    desc = ""
+                }
+
+                results.append(RegistryModel(
+                    name: name,
+                    description: String(desc.prefix(120)),
+                    sizes: sizes,
+                    capabilities: caps
+                ))
             }
             return results.isEmpty ? fallback : results
         } catch {
