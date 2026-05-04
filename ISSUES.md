@@ -8,12 +8,12 @@ while pushing through phases. Updated as items land or get superseded.
 1. **Codable struct properties on `@Model` silently lose data.** `OllamaChatOptions`
    stored directly as a property roundtrips as defaults after fetch. Workaround:
    flattened to 13 scalar fields on `ChatRecord`, exposed via a computed
-   `options` getter/setter. See `Rains/Persistence/ChatRecord.swift`.
+   `options` getter/setter. See `Spitfire/Persistence/ChatRecord.swift`.
 
 2. **Raw-representable `String` enums on `@Model` crash silently.** `OllamaMessage.Role`
    stored directly causes the test process to crash without a stack frame.
    Workaround: store `roleRaw: String` and expose `role: OllamaMessage.Role` via
-   a computed property. See `Rains/Persistence/MessageRecord.swift`.
+   a computed property. See `Spitfire/Persistence/MessageRecord.swift`.
 
 3. **`@Model` skips `private` stored properties.** Initially marked the backing
    storage as `private`, which made it invisible to the schema and silently
@@ -74,15 +74,11 @@ Issues identified during code review. 2025-05-03.
 
 **1. Naming Inconsistency**
 
-- **Location**: `Rains/RainsApp.swift:5`
-- **Observation**: App struct is named `SpitfireApp` but folder is `Rains`. Project is named `reins-swift`. This causes confusion when navigating the codebase.
-- **Risk**: High - Confuses contributors, IDE navigation may not work as expected
-- **Suggested Approach**: Rename `SpitfireApp` to `RainsApp` in `RainsApp.swift:5` to match the folder structure. Alternatively, rename the folder to `Spitfire` for consistency with the app name.
-- **Tradeoff**: Renaming folder requires updating all import statements and project references.
+- **Status**: **Resolved** — folder renamed to `Spitfire/`, all references updated.
 
 **2. Unsafe Optionals & Silent Failures**
 
-- **Location**: `Rains/Services/OllamaClient.swift:9`, `Rains/RainsApp.swift:10`
+- **Location**: `Spitfire/Services/OllamaClient.swift:9`, `Spitfire/SpitfireApp.swift:10`
 - **Observation**: Uses force-unwrap `URL(string: "http://localhost:11434")!` and `try!` for `ModelContainer`. These will crash at runtime if the string is ever malformed.
 - **Risk**: High - No graceful degradation, app crashes on startup with malformed URL
 - **Suggested Approach**:
@@ -95,14 +91,14 @@ Issues identified during code review. 2025-05-03.
       self.baseURL = baseURL ?? Self.defaultBaseURL  // safe fallback
   }
   ```
-  For `RainsApp.swift`, wrap initialization in do-catch and show alert for user.
+  For `SpitfireApp.swift`, wrap initialization in do-catch and show alert for user.
 - **Related**: Overlaps with issue #8 (timeouts) - both involve network reliability.
 
 ### Medium Priority
 
 **3. Missing Input Validation**
 
-- **Location**: `Rains/Views/SettingsView.swift:98`
+- **Location**: `Spitfire/Views/SettingsView.swift:98`
 - **Observation**: URL validation only checks `scheme != nil`, doesn't validate format (e.g., `--` in hostname) or test reachability before saving.
 - **Risk**: Medium - User can enter invalid URLs, no feedback until they try to chat
 - **Suggested Approach**: Add URL validation in `commitURL()`:
@@ -122,7 +118,7 @@ Issues identified during code review. 2025-05-03.
 
 **4. Potential Race Condition with Stream**
 
-- **Location**: `Rains/ViewModels/ChatDetailViewModel.swift:56`, `Rains/Configuration/AppState.swift:36`
+- **Location**: `Spitfire/ViewModels/ChatDetailViewModel.swift:56`, `Spitfire/Configuration/AppState.swift:36`
 - **Observation**: Stream task captures `[client]` at init, but `AppState.serverURL` can replace the client object while streaming is in progress. In-flight requests use stale client.
 - **Risk**: Medium - User changes URL mid-stream, previous stream keeps old client
 - **Suggested Approach**: Make `OllamaClient` a class (reference type) instead of struct, so all callers share the same instance. Or pass a stable client ID and validate before processing responses.
@@ -130,7 +126,7 @@ Issues identified during code review. 2025-05-03.
 
 **5. listModels Performance**
 
-- **Location**: `Rains/Services/OllamaClient.swift:113-137`
+- **Location**: `Spitfire/Services/OllamaClient.swift:113-137`
 - **Observation**: `listModels()` calls `/api/show` sequentially for each model to fetch capabilities. With many models, this is slow.
 - **Risk**: Medium - User experiences long load times when selecting model
 - **Suggested Approach**: Use `withThrowingTaskGroup(of:)` to parallelize the `/api/show` calls:
@@ -148,7 +144,7 @@ Issues identified during code review. 2025-05-03.
 
 **6. Missing Accessibility Labels**
 
-- **Location**: `Rains/Views/ChatDetailView.swift`, `Rains/Views/MessageBubbleView.swift`
+- **Location**: `Spitfire/Views/ChatDetailView.swift`, `Spitfire/Views/MessageBubbleView.swift`
 - **Observation**: No `.accessibilityLabel()` or `.accessibilityHint()` on interactive elements. PhotosPicker attach button has no label.
 - **Risk**: Medium - App not fully accessible via VoiceOver
 - **Suggested Approach**: Add accessibility to key elements:
@@ -159,7 +155,7 @@ Issues identified during code review. 2025-05-03.
 
 **7. Network Timeouts Not Configured**
 
-- **Location**: `Rains/Services/OllamaClient.swift:7`
+- **Location**: `Spitfire/Services/OllamaClient.swift:7`
 - **Observation**: Uses `URLSession.shared` with default timeouts (60s). No custom configuration for slow/unreliable connections.
 - **Risk**: Medium - Requests may timeout on large model cold-start or slow connections
 - **Suggested Approach**: Create custom session with explicit timeouts:
@@ -178,7 +174,7 @@ Issues identified during code review. 2025-05-03.
 
 **8. Verbose Options Storage**
 
-- **Location**: `Rains/Persistence/ChatRecord.swift:23-35`
+- **Location**: `Spitfire/Persistence/ChatRecord.swift:23-35`
 - **Observation**: Stores 12 `OllamaChatOptions` as flattened scalar properties. Verbose but ensures SwiftData reliability (see issue #1 above).
 - **Risk**: Low - Works correctly, just verbose
 - **Suggested Approach**: Keep current approach for iOS 17/18 compatibility. Future iOS versions may fix SwiftData Codable issues, revisit then.

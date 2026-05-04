@@ -1,5 +1,5 @@
 import XCTest
-@testable import Rains
+@testable import Spitfire
 
 final class OllamaChatOptionsTests: XCTestCase {
     func test_defaultsMatchOllamaDefaults() {

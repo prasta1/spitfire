@@ -1,4 +1,4 @@
-name: Rains
+name: Spitfire
 configs:
   Debug: debug
   Release: release
@@ -10,21 +10,21 @@ settings:
   DEVELOPMENT_TEAM: QVYZN4MJ67
 
 targets:
-  Rains:
+  Spitfire:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
     scheme:
       testTargets:
-        - RainsTests
+        - SpitfireTests
     sources:
-      - path: Rains
+      - path: Spitfire
         excludes:
           - "LaunchScreen.storyboard"
-      - path: Rains/LaunchScreen.storyboard
+      - path: Spitfire/LaunchScreen.storyboard
         buildPhase: resources
     info:
-      path: Rains/Info.plist
+      path: Spitfire/Info.plist
       properties:
         CFBundleDisplayName: Spitfire
         CFBundleShortVersionString: "0.1"
@@ -48,24 +48,24 @@ targets:
       ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
       CURRENT_PROJECT_VERSION: "1"
       MARKETING_VERSION: "0.1"
-      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.Rains
+      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.Spitfire
       PRODUCT_NAME: $(TARGET_NAME)
       SWIFT_VERSION: "5.9"
       TARGETED_DEVICE_FAMILY: "1,2"
 
-  Rains-macOS:
+  Spitfire-macOS:
     type: application
     platform: macOS
     deploymentTarget: "14.0"
     scheme:
       testTargets:
-        - RainsTests-macOS
+        - SpitfireTests-macOS
     sources:
-      - path: Rains
+      - path: Spitfire
         excludes:
           - "LaunchScreen.storyboard"
     info:
-      path: Rains/Info.plist
+      path: Spitfire/Info.plist
       properties:
         CFBundleDisplayName: Spitfire
         CFBundleShortVersionString: "0.1"
@@ -83,30 +83,30 @@ targets:
       ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
       CURRENT_PROJECT_VERSION: "1"
       MARKETING_VERSION: "0.1"
-      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.Rains-macOS
+      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.Spitfire-macOS
       PRODUCT_NAME: Spitfire
       SWIFT_VERSION: "5.9"
 
-  RainsTests:
+  SpitfireTests:
     type: bundle.unit-test
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - path: RainsTests
+      - path: SpitfireTests
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.RainsTests
+      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.SpitfireTests
       SWIFT_VERSION: "5.9"
     dependencies:
-      - target: Rains
+      - target: Spitfire
 
-  RainsTests-macOS:
+  SpitfireTests-macOS:
     type: bundle.unit-test
     platform: macOS
     deploymentTarget: "14.0"
     sources:
-      - path: RainsTests
+      - path: SpitfireTests
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.RainsTests-macOS
+      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.SpitfireTests-macOS
       SWIFT_VERSION: "5.9"
     dependencies:
-      - target: Rains-macOS
+      - target: Spitfire-macOS

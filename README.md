@@ -1,10 +1,10 @@
 # Spitfire
 
 <p align="center">
-  <img src="Rains/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="128" alt="Spitfire app icon" />
+  <img src="Spitfire/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="128" alt="Spitfire app icon" />
 </p>
 
-Native iOS Ollama chat client, written in SwiftUI.
+Native iOS/macOS Ollama chat client, written in SwiftUI.
 
 Inspired by [ibrahimcetin/reins](https://github.com/ibrahimcetin/reins) (Flutter, GPL-3.0). Spitfire is a clean-room reimplementation in Swift — independent codebase, same general feature direction (chat with self-hosted LLMs, per-conversation configuration, privacy-first).
 
@@ -18,21 +18,24 @@ Inspired by [ibrahimcetin/reins](https://github.com/ibrahimcetin/reins) (Flutter
 - **Auto-generated chat titles** from your first message
 - **Custom model creation** — save system prompt + options as a new server-side model
 - **Smart model filtering** — embedding-only models hidden from chat pickers
+- **VRAM management** — view loaded models with memory usage, unload on demand
+- **Model pulling** — search the Ollama registry and pull new models with streaming progress
+- **macOS support** — native macOS target alongside iOS
 - **Theming** — system, light, or dark appearance
 - **Privacy-first** — all data stays on-device, talks only to your Ollama server
 
 ## Requirements
 
-- iOS 17.0+
+- iOS 17.0+ / macOS 14.0+
 - Xcode 15+
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) — `Rains.xcodeproj` is generated, not checked in
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) — `Spitfire.xcodeproj` is generated, not checked in
 - A reachable [Ollama](https://ollama.com) server (local, LAN, or Tailscale)
 
 ## Getting started
 
 ```sh
 xcodegen generate
-open Rains.xcodeproj
+open Spitfire.xcodeproj
 ```
 
 Configure your Ollama server URL in Settings (defaults to `http://localhost:11434`).
@@ -40,14 +43,14 @@ Configure your Ollama server URL in Settings (defaults to `http://localhost:1143
 ## Project layout
 
 ```
-Rains/                  # app sources
+Spitfire/               # app sources
   Configuration/        # AppState, environment
   Models/               # domain types (OllamaMessage, OllamaChat, etc.)
   Persistence/          # SwiftData models (ChatRecord, MessageRecord)
   Services/             # OllamaClient (HTTP + streaming)
   ViewModels/           # ChatDetailViewModel
   Views/                # SwiftUI views
-RainsTests/             # unit tests
+SpitfireTests/          # unit tests
 project.yml             # XcodeGen spec — source of truth for project structure
 ```
 

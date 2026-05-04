@@ -26,8 +26,8 @@ final class AppState {
     private static let defaultServerURL = "http://localhost:11434"
 
     private enum Keys {
-        static let serverURL = "rains.serverURL"
-        static let theme = "rains.theme"
+        static let serverURL = "spitfire.serverURL"
+        static let theme = "spitfire.theme"
     }
 
     var serverURL: URL {

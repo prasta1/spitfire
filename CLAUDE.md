@@ -1,27 +1,27 @@
-# Rains (reins-swift)
+# Spitfire (reins-swift)
 
 ## Project Overview
 
-Native iOS Ollama chat client — clean-room Swift reimplementation of reins.
+Native iOS/macOS Ollama chat client — clean-room Swift reimplementation of reins.
 
 ## Tech Stack
 
 - SwiftUI
-- iOS 17.0+
+- iOS 17.0+ / macOS 14.0+
 - XcodeGen (project.yml is source of truth)
 
 ## Build
 
 ```sh
 xcodegen generate
-open Rains.xcodeproj
+open Spitfire.xcodeproj
 ```
 
 ## Project Layout
 
 ```
-Rains/              # app sources
-RainsTests/         # unit tests
+Spitfire/           # app sources
+SpitfireTests/      # unit tests
 project.yml         # xcodegen spec
 ```
 

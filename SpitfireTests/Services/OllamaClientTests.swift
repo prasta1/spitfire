@@ -1,5 +1,5 @@
 import XCTest
-@testable import Rains
+@testable import Spitfire
 
 final class OllamaClientTests: XCTestCase {
     private var client: OllamaClient!

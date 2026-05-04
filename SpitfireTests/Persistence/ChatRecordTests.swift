@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import Rains
+@testable import Spitfire
 
 @MainActor
 final class ChatRecordTests: XCTestCase {

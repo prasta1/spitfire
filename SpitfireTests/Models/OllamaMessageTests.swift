@@ -1,5 +1,5 @@
 import XCTest
-@testable import Rains
+@testable import Spitfire
 
 final class OllamaMessageTests: XCTestCase {
     private func decoder() -> JSONDecoder {
