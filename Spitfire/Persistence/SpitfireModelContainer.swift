@@ -7,6 +7,7 @@ enum SpitfireModelContainer {
     static let schemaTypes: [any PersistentModel.Type] = [
         ChatRecord.self,
         MessageRecord.self,
+        FolderRecord.self,
     ]
 
     static func makeShared() throws -> ModelContainer {

@@ -51,7 +51,7 @@ struct ChatDetailView: View {
         }
         .onAppear {
             if viewModel == nil {
-                viewModel = ChatDetailViewModel(chat: chat, context: context, client: appState.client)
+                viewModel = ChatDetailViewModel(chat: chat, context: context, client: appState.activeClient)
             }
         }
         .onDisappear { viewModel?.cancel() }

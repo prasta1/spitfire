@@ -32,10 +32,15 @@ struct ChatConfigurationView: View {
                 systemPromptSection
                 optionsSection
                 resetSection
-                saveAsCustomSection
+                if appState.activeBackend == .ollama {
+                    saveAsCustomSection
+                }
             }
             .navigationTitle("Configure")
             .inlineNavigationTitle()
+            #if os(macOS)
+            .formStyle(.grouped)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -46,6 +51,9 @@ struct ChatConfigurationView: View {
             }
             .task { await loadModels() }
         }
+        #if os(macOS)
+        .frame(minWidth: 460, idealWidth: 520, minHeight: 500, idealHeight: 640)
+        #endif
     }
 
     // MARK: Title
@@ -249,7 +257,7 @@ struct ChatConfigurationView: View {
     private func loadModels() async {
         modelLoadState = .loading
         do {
-            let models = try await appState.client.listModels()
+            let models = try await appState.activeClient.listModels()
                 .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             modelLoadState = .loaded(models)
         } catch {

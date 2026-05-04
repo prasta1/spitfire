@@ -10,6 +10,8 @@ struct OllamaModel: Identifiable, Equatable {
     let digest: String
     let parameterSize: String
     let capabilities: ModelCapabilities?
+    /// True for OpenRouter models with zero prompt + completion cost. Always false for Ollama models.
+    var isFree: Bool = false
 
     var id: String { digest }
 }

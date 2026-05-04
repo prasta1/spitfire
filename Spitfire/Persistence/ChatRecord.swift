@@ -34,6 +34,8 @@ final class ChatRecord {
     var optTopP: Double = 0.9
     var optMinP: Double = 0.0
 
+    var folder: FolderRecord?
+
     @Relationship(deleteRule: .cascade, inverse: \MessageRecord.chat)
     var messages: [MessageRecord] = []
 
