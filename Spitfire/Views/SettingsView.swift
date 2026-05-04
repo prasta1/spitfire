@@ -45,11 +45,13 @@ struct SettingsView: View {
         @Bindable var bindable = appState
 
         Section {
-            TextField("http://localhost:11434", text: $urlInput)
-                .noAutocapitalization()
-                .autocorrectionDisabled()
-                .urlKeyboard()
-                .onSubmit { commitURL() }
+            TextField(text: $urlInput, prompt: Text("http://localhost:11434")) {
+                Text("Server URL")
+            }
+            .noAutocapitalization()
+            .autocorrectionDisabled()
+            .urlKeyboard()
+            .onSubmit { commitURL() }
 
             Button {
                 test()
