@@ -17,7 +17,10 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                serverSection
+                backendSection
+                if appState.activeBackend == .ollama {
+                    serverSection
+                }
                 appearanceSection
             }
             .navigationTitle("Settings")
@@ -38,6 +41,26 @@ struct SettingsView: View {
         #if os(macOS)
         .frame(minWidth: 380, idealWidth: 440, minHeight: 260, idealHeight: 300)
         #endif
+    }
+
+    @ViewBuilder
+    private var backendSection: some View {
+        @Bindable var bindable = appState
+
+        Section("Backend") {
+            Picker("Provider", selection: $bindable.activeBackend) {
+                ForEach(ActiveBackend.allCases) { backend in
+                    Text(backend.displayName).tag(backend)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if appState.activeBackend == .openRouter {
+                SecureField("API Key", text: $bindable.openRouterAPIKey)
+                    .noAutocapitalization()
+                    .autocorrectionDisabled()
+            }
+        }
     }
 
     @ViewBuilder

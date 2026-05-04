@@ -18,6 +18,7 @@ struct NewChatSheet: View {
     @State private var registryModels: [RegistryModel] = []
     @State private var searchTask: Task<Void, Never>?
     @State private var expandedModel: String?
+    @State private var showFreeOnly: Bool = false
 
     enum PullState: Equatable {
         case idle
@@ -50,7 +51,16 @@ struct NewChatSheet: View {
                         modelPickerRow
                     }
                 } header: {
-                    Text("Model")
+                    HStack {
+                        Text("Model")
+                        if appState.activeBackend == .openRouter {
+                            Spacer()
+                            Toggle("Free only", isOn: $showFreeOnly)
+                                .toggleStyle(.button)
+                                .font(.caption)
+                                .controlSize(.mini)
+                        }
+                    }
                 } footer: {
                     Text(footerText)
                 }
@@ -61,11 +71,13 @@ struct NewChatSheet: View {
                     }
                 }
 
-                if !runningModels.isEmpty {
+                if appState.activeBackend == .ollama && !runningModels.isEmpty {
                     loadedModelsSection
                 }
 
-                pullModelSection
+                if appState.activeBackend == .ollama {
+                    pullModelSection
+                }
             }
             .navigationTitle("New Chat")
             .inlineNavigationTitle()
@@ -98,15 +110,24 @@ struct NewChatSheet: View {
                 ProgressView()
             }
         case .loaded(let models):
-            if models.isEmpty {
-                Text("No models installed on the server").foregroundStyle(.secondary)
+            let filtered = showFreeOnly ? models.filter(\.isFree) : models
+            if filtered.isEmpty {
+                Text(showFreeOnly ? "No free models available" : "No models installed on the server")
+                    .foregroundStyle(.secondary)
             } else {
                 Picker("Model", selection: $selectedModel) {
-                    ForEach(models) { model in
+                    ForEach(filtered) { model in
                         ModelLabel(
                             model: model,
                             isLoaded: runningNames.contains(model.name)
                         ).tag(model.name)
+                    }
+                }
+                .onChange(of: showFreeOnly) { _, _ in
+                    // Reset selection to first visible model when filter changes
+                    if !filtered.contains(where: { $0.name == selectedModel }),
+                       let first = filtered.first {
+                        selectedModel = first.name
                     }
                 }
             }
@@ -362,6 +383,9 @@ struct NewChatSheet: View {
         case (true, _):
             return "Type the name of a model already pulled on your Ollama server."
         case (_, .loaded):
+            if appState.activeBackend == .openRouter {
+                return "Models from OpenRouter."
+            }
             return "Picked from /api/tags on \(appState.serverURL.host() ?? appState.serverURL.absoluteString)."
         case (_, .loading):
             return "Reading models from your Ollama server…"
@@ -398,7 +422,7 @@ struct NewChatSheet: View {
     private func loadModels() async {
         loadState = .loading
         do {
-            let models = try await appState.client.listModels()
+            let models = try await appState.activeClient.listModels()
                 .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             loadState = .loaded(models)
             if selectedModel.isEmpty, let first = models.first {
@@ -410,6 +434,7 @@ struct NewChatSheet: View {
     }
 
     private func loadRunning() async {
+        guard appState.activeBackend == .ollama else { return }
         do {
             runningModels = try await appState.client.listRunning()
         } catch {
@@ -418,6 +443,7 @@ struct NewChatSheet: View {
     }
 
     private func loadRegistry() async {
+        guard appState.activeBackend == .ollama else { return }
         registryModels = await OllamaClient.searchRegistry()
     }
 

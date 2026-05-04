@@ -16,10 +16,10 @@ final class ChatDetailViewModel {
     var errorMessage: String?
 
     private let context: ModelContext
-    private let client: OllamaClient
+    private let client: any SpitfireClient
     private var streamTask: Task<Void, Never>?
 
-    init(chat: ChatRecord, context: ModelContext, client: OllamaClient) {
+    init(chat: ChatRecord, context: ModelContext, client: any SpitfireClient) {
         self.chat = chat
         self.context = context
         self.client = client
