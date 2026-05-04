@@ -17,6 +17,7 @@ struct NewChatSheet: View {
     @State private var pullState: PullState = .idle
     @State private var registryModels: [RegistryModel] = []
     @State private var searchTask: Task<Void, Never>?
+    @State private var expandedModel: String?
 
     enum PullState: Equatable {
         case idle
@@ -177,7 +178,7 @@ struct NewChatSheet: View {
                 }
             }
 
-            if !filteredSuggestions.isEmpty && !isPulling {
+            if !groupedSuggestions.isEmpty && !isPulling {
                 suggestionsView
             }
 
@@ -223,10 +224,27 @@ struct NewChatSheet: View {
 
     @ViewBuilder
     private var suggestionsView: some View {
-        let suggestions = filteredSuggestions
-        ForEach(suggestions) { model in
+        let groups = groupedSuggestions
+        ForEach(groups, id: \.family) { group in
+            DisclosureGroup(group.family) {
+                ForEach(group.models) { model in
+                    modelSuggestionRow(model)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func modelSuggestionRow(_ model: RegistryModel) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             Button {
-                pullName = model.name
+                if model.sizes.count > 1 {
+                    withAnimation {
+                        expandedModel = expandedModel == model.name ? nil : model.name
+                    }
+                } else {
+                    pullName = model.sizes.isEmpty ? model.name : "\(model.name):\(model.sizes[0])"
+                }
             } label: {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 4) {
@@ -238,23 +256,42 @@ struct NewChatSheet: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
-                    }
-                    HStack(spacing: 6) {
-                        if !model.sizes.isEmpty {
-                            Text(model.sizesLabel)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        if !model.description.isEmpty {
-                            Text(model.description)
-                                .font(.caption)
+                        Spacer()
+                        if model.sizes.count > 1 {
+                            Image(systemName: expandedModel == model.name ? "chevron.up" : "chevron.down")
+                                .font(.caption2)
                                 .foregroundStyle(.tertiary)
-                                .lineLimit(1)
                         }
+                    }
+                    if !model.description.isEmpty {
+                        Text(model.description)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
                     }
                 }
             }
             .buttonStyle(.plain)
+
+            if expandedModel == model.name {
+                FlowLayout(spacing: 6) {
+                    ForEach(model.sizes, id: \.self) { size in
+                        Button {
+                            pullName = "\(model.name):\(size)"
+                            expandedModel = nil
+                        } label: {
+                            Text(size.uppercased())
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color(.tertiarySystemFill))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
     }
 
@@ -265,6 +302,26 @@ struct NewChatSheet: View {
         case .pulling, .progress: ProgressView().controlSize(.small)
         case .done: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
         }
+    }
+
+    private struct ModelGroup {
+        let family: String
+        let models: [RegistryModel]
+    }
+
+    /// Suggestions grouped by model family, filtered by input and excluding installed models.
+    private var groupedSuggestions: [ModelGroup] {
+        let filtered = filteredSuggestions
+        var familyOrder: [String] = []
+        var familyMap: [String: [RegistryModel]] = [:]
+        for model in filtered {
+            let fam = model.family
+            if familyMap[fam] == nil {
+                familyOrder.append(fam)
+            }
+            familyMap[fam, default: []].append(model)
+        }
+        return familyOrder.map { ModelGroup(family: $0, models: familyMap[$0]!) }
     }
 
     /// Suggestions filtered by current input, excluding already-installed models.

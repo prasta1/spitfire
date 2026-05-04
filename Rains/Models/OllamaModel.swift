@@ -61,6 +61,24 @@ struct RegistryModel: Identifiable, Equatable {
         sizes.map { $0.uppercased() }.joined(separator: ", ")
     }
 
+    /// Model family name for grouping, e.g. "gemma4" -> "Gemma", "deepseek-v4-flash" -> "Deepseek"
+    var family: String {
+        // Split at first digit, strip trailing separators and common suffixes
+        var base = name
+        if let digitIndex = base.firstIndex(where: \.isNumber) {
+            base = String(base[base.startIndex..<digitIndex])
+        }
+        base = base.trimmingCharacters(in: CharacterSet(charactersIn: "-."))
+        // Strip common variant suffixes
+        for suffix in ["-v", "-k", "-xs", "-small", "-medium", "-large", "-mini", "-nano", "-pro", "-flash"] {
+            if base.hasSuffix(suffix) {
+                base = String(base.dropLast(suffix.count))
+            }
+        }
+        if base.isEmpty { base = name }
+        return base.prefix(1).uppercased() + base.dropFirst()
+    }
+
     /// Capability badges reusing the same SF Symbol mapping.
     var badgeSymbols: [(symbol: String, label: String)] {
         var result: [(String, String)] = []
