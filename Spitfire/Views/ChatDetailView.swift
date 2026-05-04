@@ -4,6 +4,13 @@ import PhotosUI
 import SwiftData
 import SwiftUI
 
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct ChatDetailView: View {
     @Bindable var chat: ChatRecord
     @Environment(\.modelContext) private var context
@@ -11,6 +18,8 @@ struct ChatDetailView: View {
 
     @State private var viewModel: ChatDetailViewModel?
     @State private var showingConfig = false
+    @State private var isAtBottom: Bool = true
+    @State private var scrollOffset: CGFloat = 0
     #if os(iOS)
     @State private var pickerSelection: PhotosPickerItem?
     #endif
@@ -78,6 +87,18 @@ struct ChatDetailView: View {
                     }
                 }
                 .padding()
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: geo.frame(in: .named("scroll")).minY)
+                })
+            }
+            .coordinateSpace(name: "scroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                // Force button visible for now on macOS until scroll detection works
+                #if os(macOS)
+                isAtBottom = false
+                #else
+                isAtBottom = value >= -10
+                #endif
             }
             .onChange(of: chat.orderedMessages.last?.content) { _, _ in
                 guard let id = chat.orderedMessages.last?.id else { return }
@@ -88,7 +109,36 @@ struct ChatDetailView: View {
                     withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if !isAtBottom {
+                    jumpToBottomButton(proxy: proxy)
+                }
+            }
         }
+    }
+
+    @ViewBuilder
+    private func jumpToBottomButton(proxy: ScrollViewProxy) -> some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.3)) {
+                if let id = chat.orderedMessages.last?.id {
+                    proxy.scrollTo(id, anchor: .bottom)
+                }
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 36, height: 36)
+                
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, 16)
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder
