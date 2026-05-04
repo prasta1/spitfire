@@ -172,8 +172,9 @@ struct OllamaClient {
                         if let error = chunk.error {
                             throw OllamaError.http(status: 0, body: error)
                         }
+                        guard let status = chunk.status else { continue }
                         let progress = PullProgress(
-                            status: chunk.status,
+                            status: status,
                             total: chunk.total ?? 0,
                             completed: chunk.completed ?? 0
                         )
@@ -535,7 +536,7 @@ private struct PullRequest: Encodable {
 }
 
 private struct PullChunk: Decodable {
-    let status: String
+    let status: String?
     let digest: String?
     let total: Int64?
     let completed: Int64?
