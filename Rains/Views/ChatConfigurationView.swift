@@ -35,7 +35,7 @@ struct ChatConfigurationView: View {
                 saveAsCustomSection
             }
             .navigationTitle("Configure")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -193,7 +193,7 @@ struct ChatConfigurationView: View {
     private var saveAsCustomSection: some View {
         Section {
             TextField("New model name", text: $saveAsName)
-                .textInputAutocapitalization(.never)
+                .noAutocapitalization()
                 .autocorrectionDisabled()
 
             Button {

@@ -24,7 +24,7 @@ struct TypingIndicatorView: View {
         .padding(.vertical, 12)
         .background(
             Capsule()
-                .fill(Color(uiColor: .secondarySystemBackground))
+                .fill(Color.secondaryBackground)
         )
         .onAppear {
             isAnimating = true

@@ -38,7 +38,7 @@ struct EmptyStateView: View {
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 20)
-                                    .fill(Color(uiColor: .secondarySystemBackground))
+                                    .fill(Color.secondaryBackground)
                             )
                     }
                     .buttonStyle(.plain)
@@ -58,6 +58,7 @@ struct EmptyStateView: View {
                 .padding(.vertical, 12)
                 .background(Capsule().fill(Color.accentColor))
             }
+            .buttonStyle(.plain)
         }
         .padding()
     }

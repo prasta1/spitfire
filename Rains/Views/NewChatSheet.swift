@@ -44,7 +44,7 @@ struct NewChatSheet: View {
                 Section {
                     if manualEntry {
                         TextField("e.g. llama3.2", text: $manualName)
-                            .textInputAutocapitalization(.never)
+                            .noAutocapitalization()
                             .autocorrectionDisabled()
                     } else {
                         modelPickerRow
@@ -68,7 +68,10 @@ struct NewChatSheet: View {
                 pullModelSection
             }
             .navigationTitle("New Chat")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
+            #if os(macOS)
+            .formStyle(.grouped)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -80,6 +83,9 @@ struct NewChatSheet: View {
             }
             .task { await loadAll() }
         }
+        #if os(macOS)
+        .frame(minWidth: 420, idealWidth: 500, minHeight: 400, idealHeight: 520)
+        #endif
     }
 
     @ViewBuilder
@@ -161,7 +167,7 @@ struct NewChatSheet: View {
         Section {
             HStack {
                 TextField("Search or enter model name", text: $pullName)
-                    .textInputAutocapitalization(.never)
+                    .noAutocapitalization()
                     .autocorrectionDisabled()
                     .disabled(isPulling)
                     .onChange(of: pullName) { _, newValue in
@@ -285,7 +291,7 @@ struct NewChatSheet: View {
                                 .fontWeight(.medium)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(Color(.tertiarySystemFill))
+                                .background(Color.tertiaryFill)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)

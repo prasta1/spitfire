@@ -18,6 +18,7 @@ struct ChatListView: View {
         }
         .navigationTitle("Spitfire")
         .toolbar {
+            #if os(iOS)
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     showingSettings = true
@@ -25,6 +26,15 @@ struct ChatListView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
             }
+            #else
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+            #endif
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showingNewChat = true

@@ -9,8 +9,8 @@ struct MessageBubbleView: View {
 
             VStack(alignment: alignment, spacing: 6) {
                 if let imageData = message.imagesData,
-                   let uiImage = UIImage(data: imageData) {
-                    Image(uiImage: uiImage)
+                   let platformImage = PlatformImage(data: imageData) {
+                    image(from: platformImage)
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: 240, maxHeight: 240)
@@ -61,11 +61,19 @@ struct MessageBubbleView: View {
         message.role == .user ? .trailing : .leading
     }
 
+    private func image(from platformImage: PlatformImage) -> Image {
+        #if os(iOS)
+        Image(uiImage: platformImage)
+        #else
+        Image(nsImage: platformImage)
+        #endif
+    }
+
     private var bubbleBackground: Color {
         switch message.role {
         case .user:      return .accentColor
-        case .assistant: return Color(.secondarySystemBackground)
-        case .system:    return Color(.tertiarySystemBackground)
+        case .assistant: return .secondaryBackground
+        case .system:    return .tertiaryBackground
         }
     }
 }

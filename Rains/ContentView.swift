@@ -7,6 +7,9 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             ChatListView(selection: $selection)
+                #if os(macOS)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 360)
+                #endif
         } detail: {
             if let chat = selection {
                 ChatDetailView(chat: chat)

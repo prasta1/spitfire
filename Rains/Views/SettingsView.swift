@@ -21,7 +21,7 @@ struct SettingsView: View {
                 appearanceSection
             }
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -40,9 +40,9 @@ struct SettingsView: View {
 
         Section {
             TextField("http://localhost:11434", text: $urlInput)
-                .textInputAutocapitalization(.never)
+                .noAutocapitalization()
                 .autocorrectionDisabled()
-                .keyboardType(.URL)
+                .urlKeyboard()
                 .onSubmit { commitURL() }
 
             Button {

@@ -19,8 +19,14 @@ struct SpitfireApp: App {
             ContentView()
                 .environment(appState)
                 .preferredColorScheme(appState.theme.colorScheme)
+                #if os(macOS)
+                .frame(minWidth: 700, minHeight: 450)
+                #endif
         }
         .modelContainer(modelContainer)
+        #if os(macOS)
+        .defaultSize(width: 900, height: 600)
+        #endif
     }
 }
 

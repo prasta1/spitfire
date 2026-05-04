@@ -1,4 +1,6 @@
+#if os(iOS)
 import PhotosUI
+#endif
 import SwiftData
 import SwiftUI
 
@@ -9,7 +11,12 @@ struct ChatDetailView: View {
 
     @State private var viewModel: ChatDetailViewModel?
     @State private var showingConfig = false
+    #if os(iOS)
     @State private var pickerSelection: PhotosPickerItem?
+    #endif
+    #if os(macOS)
+    @State private var showingFileImporter = false
+    #endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,15 +25,17 @@ struct ChatDetailView: View {
             inputBar
         }
         .navigationTitle(chat.title)
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavigationTitle()
         .toolbar {
+            #if os(iOS)
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingConfig = true
-                } label: {
-                    Label("Configure", systemImage: "slider.horizontal.3")
-                }
+                configButton
             }
+            #else
+            ToolbarItem(placement: .automatic) {
+                configButton
+            }
+            #endif
         }
         .sheet(isPresented: $showingConfig) {
             ChatConfigurationView(chat: chat)
@@ -37,6 +46,14 @@ struct ChatDetailView: View {
             }
         }
         .onDisappear { viewModel?.cancel() }
+    }
+
+    private var configButton: some View {
+        Button {
+            showingConfig = true
+        } label: {
+            Label("Configure", systemImage: "slider.horizontal.3")
+        }
     }
 
     @ViewBuilder
@@ -80,12 +97,8 @@ struct ChatDetailView: View {
             VStack(spacing: 6) {
                 pendingImagePreview(for: viewModel)
 
-                HStack(alignment: .bottom, spacing: 8) {
-                    PhotosPicker(selection: $pickerSelection, matching: .images, photoLibrary: .shared()) {
-                        Image(systemName: "photo")
-                            .font(.system(size: 22))
-                    }
-                    .disabled(viewModel.isStreaming)
+                HStack(alignment: .center, spacing: 8) {
+                    imageAttachButton(for: viewModel)
 
                     TextField("Message", text: Binding(
                         get: { viewModel.inputText },
@@ -94,6 +107,11 @@ struct ChatDetailView: View {
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...4)
                         .disabled(viewModel.isStreaming)
+                        .onSubmit {
+                            if canSend(viewModel) && !viewModel.isStreaming {
+                                viewModel.send()
+                            }
+                        }
 
                     Button {
                         if viewModel.isStreaming {
@@ -110,6 +128,7 @@ struct ChatDetailView: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
+            #if os(iOS)
             .onChange(of: pickerSelection) { _, newValue in
                 guard let item = newValue else { return }
                 Task {
@@ -119,13 +138,43 @@ struct ChatDetailView: View {
                     pickerSelection = nil
                 }
             }
+            #endif
+            #if os(macOS)
+            .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [.image]) { result in
+                if case .success(let url) = result,
+                   url.startAccessingSecurityScopedResource(),
+                   let data = try? Data(contentsOf: url) {
+                    viewModel.pendingImage = data
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            #endif
         }
+    }
+
+    @ViewBuilder
+    private func imageAttachButton(for viewModel: ChatDetailViewModel) -> some View {
+        #if os(iOS)
+        PhotosPicker(selection: $pickerSelection, matching: .images, photoLibrary: .shared()) {
+            Image(systemName: "photo")
+                .font(.system(size: 22))
+        }
+        .disabled(viewModel.isStreaming)
+        #else
+        Button {
+            showingFileImporter = true
+        } label: {
+            Image(systemName: "photo")
+                .font(.system(size: 22))
+        }
+        .disabled(viewModel.isStreaming)
+        #endif
     }
 
     @ViewBuilder
     private func contextMenu(for message: MessageRecord) -> some View {
         Button {
-            UIPasteboard.general.string = message.content
+            Clipboard.copy(message.content)
         } label: {
             Label("Copy", systemImage: "doc.on.doc")
         }
@@ -149,9 +198,9 @@ struct ChatDetailView: View {
 
     @ViewBuilder
     private func pendingImagePreview(for viewModel: ChatDetailViewModel) -> some View {
-        if let data = viewModel.pendingImage, let uiImage = UIImage(data: data) {
+        if let data = viewModel.pendingImage, let platformImage = PlatformImage(data: data) {
             HStack {
-                Image(uiImage: uiImage)
+                platformImageView(platformImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: 56, height: 56)
@@ -168,5 +217,13 @@ struct ChatDetailView: View {
                 .buttonStyle(.borderless)
             }
         }
+    }
+
+    private func platformImageView(_ image: PlatformImage) -> Image {
+        #if os(iOS)
+        Image(uiImage: image)
+        #else
+        Image(nsImage: image)
+        #endif
     }
 }

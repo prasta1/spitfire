@@ -19,10 +19,14 @@ targets:
         - RainsTests
     sources:
       - path: Rains
+        excludes:
+          - "LaunchScreen.storyboard"
+      - path: Rains/LaunchScreen.storyboard
+        buildPhase: resources
     info:
       path: Rains/Info.plist
       properties:
-        CFBundleDisplayName: Rains
+        CFBundleDisplayName: Spitfire
         CFBundleShortVersionString: "0.1"
         CFBundleVersion: "1"
         ITSAppUsesNonExemptEncryption: false
@@ -32,16 +36,13 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        # Allow plain-HTTP traffic to the user's Ollama server. Covers
-        # localhost / link-local plus an explicit exception for the user's
-        # Tailscale tailnet (CGNAT 100.x range isn't "local" to ATS).
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           NSExceptionDomains:
             taile85139.ts.net:
               NSIncludesSubdomains: true
               NSExceptionAllowsInsecureHTTPLoads: true
-        NSLocalNetworkUsageDescription: "Rains connects to your Ollama server, which may live on your local network or a Tailscale tailnet."
+        NSLocalNetworkUsageDescription: "Spitfire connects to your Ollama server, which may live on your local network or a Tailscale tailnet."
     settings:
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -51,6 +52,40 @@ targets:
       PRODUCT_NAME: $(TARGET_NAME)
       SWIFT_VERSION: "5.9"
       TARGETED_DEVICE_FAMILY: "1,2"
+
+  Rains-macOS:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    scheme:
+      testTargets:
+        - RainsTests-macOS
+    sources:
+      - path: Rains
+        excludes:
+          - "LaunchScreen.storyboard"
+    info:
+      path: Rains/Info.plist
+      properties:
+        CFBundleDisplayName: Spitfire
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            taile85139.ts.net:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
+        NSLocalNetworkUsageDescription: "Spitfire connects to your Ollama server, which may live on your local network or a Tailscale tailnet."
+    settings:
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+      CURRENT_PROJECT_VERSION: "1"
+      MARKETING_VERSION: "0.1"
+      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.Rains-macOS
+      PRODUCT_NAME: Spitfire
+      SWIFT_VERSION: "5.9"
 
   RainsTests:
     type: bundle.unit-test
@@ -63,3 +98,15 @@ targets:
       SWIFT_VERSION: "5.9"
     dependencies:
       - target: Rains
+
+  RainsTests-macOS:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: RainsTests
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: dev.prasta1.RainsTests-macOS
+      SWIFT_VERSION: "5.9"
+    dependencies:
+      - target: Rains-macOS

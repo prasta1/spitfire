@@ -61,6 +61,7 @@ final class ChatDetailViewModel {
         isStreaming = true
 
         streamTask = Task { [client] in
+            defer { self.isStreaming = false }
             do {
                 let stream = client.chatStream(messages: history, in: domainChat)
                 for try await chunk in stream {
@@ -75,10 +76,8 @@ final class ChatDetailViewModel {
                 }
                 try? self.context.save()
             } catch is CancellationError {
-                self.isStreaming = false
                 try? self.context.save()
             } catch {
-                self.isStreaming = false
                 self.errorMessage = error.localizedDescription
                 if assistantMessage.content.isEmpty {
                     self.chat.messages.removeAll { $0.id == assistantMessage.id }
