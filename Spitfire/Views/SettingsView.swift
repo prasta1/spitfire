@@ -22,6 +22,9 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .inlineNavigationTitle()
+            #if os(macOS)
+            .formStyle(.grouped)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -32,6 +35,9 @@ struct SettingsView: View {
             }
             .onAppear { urlInput = appState.serverURL.absoluteString }
         }
+        #if os(macOS)
+        .frame(minWidth: 380, idealWidth: 440, minHeight: 260, idealHeight: 300)
+        #endif
     }
 
     @ViewBuilder

@@ -10,7 +10,21 @@ enum SpitfireModelContainer {
     ]
 
     static func makeShared() throws -> ModelContainer {
-        try ModelContainer(for: Schema(schemaTypes), configurations: ModelConfiguration())
+        // CloudKit sync enabled once iCloud container is fully provisioned.
+        // To enable: ModelConfiguration(cloudKitDatabase: .private("iCloud.dev.prasta1.Spitfire"))
+        let config = ModelConfiguration()
+        do {
+            return try ModelContainer(for: Schema(schemaTypes), configurations: config)
+        } catch {
+            #if DEBUG
+            // Store is corrupted (e.g. from a failed CloudKit migration during development).
+            // Delete and recreate — data loss is acceptable in debug builds.
+            try? FileManager.default.removeItem(at: config.url)
+            return try ModelContainer(for: Schema(schemaTypes), configurations: config)
+            #else
+            throw error
+            #endif
+        }
     }
 
     static func makeInMemory() throws -> ModelContainer {
