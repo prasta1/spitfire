@@ -457,6 +457,13 @@ struct NewChatSheet: View {
             pullState = .done
             pullName = ""
             await loadModels()
+        } catch let error as OllamaError {
+            if case .http(_, let body) = error,
+               let body, body.contains("file does not exist") || body.contains("not found") {
+                pullState = .failed("Model \"\(name)\" not found. Verify the exact name at ollama.com/library.")
+            } else {
+                pullState = .failed(error.localizedDescription)
+            }
         } catch {
             pullState = .failed(error.localizedDescription)
         }
