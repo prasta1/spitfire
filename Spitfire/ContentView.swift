@@ -6,15 +6,28 @@ struct ContentView: View {
     @State private var selection: ChatRecord?
 
     var body: some View {
+        #if os(iOS)
+        // NavigationSplitView on iPhone (iOS 17+) presents the sidebar as a
+        // sheet over the detail view, leaving a large black gap. NavigationStack
+        // gives the expected full-screen list → push behaviour.
+        NavigationStack {
+            ChatListView(selection: $selection)
+                .navigationDestination(item: $selection) { chat in
+                    ChatDetailView(chat: chat).id(chat.id)
+                }
+        }
+        .onChange(of: appState.pendingSelection) { _, newChat in
+            guard let chat = newChat else { return }
+            selection = chat
+            appState.pendingSelection = nil
+        }
+        #else
         NavigationSplitView {
             ChatListView(selection: $selection)
-                #if os(macOS)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 360)
-                #endif
         } detail: {
             if let chat = selection {
-                ChatDetailView(chat: chat)
-                    .id(chat.id)
+                ChatDetailView(chat: chat).id(chat.id)
             } else {
                 ChatEmptyDetailView()
             }
@@ -24,6 +37,7 @@ struct ContentView: View {
             selection = chat
             appState.pendingSelection = nil
         }
+        #endif
     }
 }
 

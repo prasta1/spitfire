@@ -84,6 +84,17 @@ extension MessageRecord {
         )
     }
 
+    /// Message content with Markdown syntax stripped to plain text.
+    var plainContent: String {
+        let options = AttributedString.MarkdownParsingOptions(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        )
+        if let attributed = try? AttributedString(markdown: content, options: options) {
+            return String(attributed.characters)
+        }
+        return content
+    }
+
     func toDomain() -> OllamaMessage {
         OllamaMessage(
             id: id,

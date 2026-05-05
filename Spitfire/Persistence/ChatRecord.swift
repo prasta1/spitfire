@@ -129,4 +129,42 @@ extension ChatRecord {
     var orderedMessages: [MessageRecord] {
         messages.sorted { $0.createdAt < $1.createdAt }
     }
+
+    /// Full conversation formatted as Markdown, suitable for sharing or export.
+    var markdownTranscript: String {
+        let dateStr = createdAt.formatted(date: .abbreviated, time: .omitted)
+        var lines: [String] = [
+            "# \(title)",
+            "**Model:** \(model)  **Date:** \(dateStr)",
+            "",
+        ]
+        for message in orderedMessages where message.role != .system {
+            let label = message.role == .user ? "**User**" : "**Assistant**"
+            lines.append(label)
+            lines.append("")
+            lines.append(message.content)
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// Full conversation as plain text (Markdown syntax stripped), suitable for export.
+    var plainTextTranscript: String {
+        let dateStr = createdAt.formatted(date: .abbreviated, time: .omitted)
+        var lines: [String] = [
+            title,
+            "Model: \(model)  Date: \(dateStr)",
+            "",
+        ]
+        for message in orderedMessages where message.role != .system {
+            let label = message.role == .user ? "User" : "Assistant"
+            let plain = message.plainContent
+            lines.append("[\(label)]")
+            lines.append(plain)
+            lines.append("")
+        }
+        return lines.joined(separator: "\n")
+    }
 }
