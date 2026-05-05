@@ -76,6 +76,10 @@ final class AppState {
     /// The Ollama client — used directly for Ollama-only operations (pull, delete, unload).
     private(set) var client: OllamaClient
 
+    /// Set by the menubar popover to request the main window navigate to a specific chat.
+    /// `ContentView` observes this and clears it after navigating.
+    var pendingSelection: ChatRecord?
+
     /// The active backend client — use this in views/view models for chat and model listing.
     var activeClient: any SpitfireClient {
         switch activeBackend {

@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(AppState.self) private var appState
     @State private var selection: ChatRecord?
 
     var body: some View {
@@ -17,6 +18,11 @@ struct ContentView: View {
             } else {
                 ChatEmptyDetailView()
             }
+        }
+        .onChange(of: appState.pendingSelection) { _, newChat in
+            guard let chat = newChat else { return }
+            selection = chat
+            appState.pendingSelection = nil
         }
     }
 }

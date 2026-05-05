@@ -42,6 +42,8 @@ struct NewChatSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                providerSection
+
                 Section {
                     if manualEntry {
                         TextField("e.g. llama3.2", text: $manualName)
@@ -93,11 +95,34 @@ struct NewChatSheet: View {
                         .disabled(!canCreate)
                 }
             }
-            .task { await loadAll() }
+            .task {
+                showFreeOnly = appState.activeBackend == .openRouter
+                await loadAll()
+            }
+            .onChange(of: appState.activeBackend) { _, newBackend in
+                selectedModel = ""
+                showFreeOnly = newBackend == .openRouter
+                Task { await loadAll() }
+            }
         }
         #if os(macOS)
         .frame(minWidth: 420, idealWidth: 500, minHeight: 400, idealHeight: 520)
         #endif
+    }
+
+    @ViewBuilder
+    private var providerSection: some View {
+        @Bindable var bindable = appState
+
+        Section("Provider") {
+            Picker("Provider", selection: $bindable.activeBackend) {
+                ForEach(ActiveBackend.allCases) { backend in
+                    Text(backend.displayName).tag(backend)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
     }
 
     @ViewBuilder

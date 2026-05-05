@@ -15,7 +15,7 @@ struct SpitfireApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             ContentView()
                 .environment(appState)
                 .preferredColorScheme(appState.theme.colorScheme)
@@ -26,6 +26,15 @@ struct SpitfireApp: App {
         .modelContainer(modelContainer)
         #if os(macOS)
         .defaultSize(width: 900, height: 600)
+        #endif
+
+        #if os(macOS)
+        MenuBarExtra("Spitfire", systemImage: "airplane.fill") {
+            MenuBarQuickQueryView()
+                .environment(appState)
+        }
+        .modelContainer(modelContainer)
+        .menuBarExtraStyle(.window)
         #endif
     }
 }
