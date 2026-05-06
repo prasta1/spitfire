@@ -28,43 +28,39 @@ while pushing through phases. Updated as items land or get superseded.
 5. **No streaming-endpoint tests.** `URLProtocolStub` doesn't cleanly model
    chunked NDJSON delivery. Plan to smoke-test against a real Ollama server.
 
-6. **No live UI smoke test.** Build is green and 33 unit tests pass, but I
-   haven't actually run the simulator and clicked through send → stream →
-   persist → relaunch. Needs human verification.
-
-7. **OllamaClient in `ChatDetailViewModel` is captured at init.** If the user
+6. **OllamaClient in `ChatDetailViewModel` is captured at init.** If the user
    changes the server URL mid-conversation, in-progress chats keep the old
    client. Acceptable for now; revisit if it becomes a real annoyance.
 
 ## Polish gaps
 
-8. **App icon is a 1024×1024 placeholder.** AppIcon.appiconset has no actual
+7. **App icon is a 1024×1024 placeholder.** AppIcon.appiconset has no actual
    PNG. App will ship without an icon until art is added.
 
-9. **Markdown rendering is inline-only.** Bold/italic/code/links work; full
-   paragraph markdown (especially fenced code blocks with monospace + bg)
-   doesn't. Would need a real renderer like swift-markdown-ui or a custom
-   one — Apple's `AttributedString(markdown:)` only handles inline.
+8. **Markdown rendering is inline-only.** Bold/italic/code/links work; fenced
+   code blocks with monospace + background don't. Would need a real renderer
+   like swift-markdown-ui or a custom one — Apple's `AttributedString(markdown:)`
+   only handles inline syntax.
 
-10. **No edit-message flow.** Regenerating the *last* assistant message
-    via context menu is supported; editing earlier messages and re-streaming
-    isn't.
+9. **No edit-message flow.** Regenerating the *last* assistant message
+   via context menu is supported; editing earlier messages and re-streaming
+   isn't.
 
-11. **Single image per message only.** Schema is `imagesData: Data?`, not
+10. **Single image per message only.** Schema is `imagesData: Data?`, not
     `[Data]`. Would need either repeated fields or a JSON-encoded array
     (which hits SwiftData issue #1 again, so probably a separate
     `MessageImage` `@Model` with relationship).
 
-12. **No image compression.** PhotosPicker hands us full-resolution photos
+11. **No image compression.** PhotosPicker hands us full-resolution photos
     that get sent as-is to the server. Should resize/recompress before
     upload — Ollama vision models don't need 12MP input.
 
-13. **No vision-capability gating in the input bar.** Attach button shows
+12. **No vision-capability gating in the input bar.** Attach button shows
     even for non-vision models. Server rejects with an error which we
     surface, but proactive UX would be better.
 
-14. **Chat title is "New Chat" forever.** Flutter app has a generate-title
-    flow (uses /api/generate with a fixed prompt). Not ported.
+13. **OpenRouter API key stored in UserDefaults.** Wiped on app reinstall
+    or data reset. Should be moved to Keychain for persistence and security.
 
 ## Code Review - open code-minimax
 
@@ -189,17 +185,23 @@ Issues identified during code review. 2025-05-03.
 - ~~Image attachments in `MessageRecord`.~~ Phase 6.
 - ~~Markdown rendering, edit/regenerate, app icon, accent color.~~
   Markdown (inline) + regenerate-last + accent color landed in Phase 7;
-  app icon and full edit flow remain (#8, #10).
+  app icon and full edit flow remain (#7, #9).
 - ~~Splash screen with background image + logo.~~ Phase 8.
+- ~~**OpenRouter integration.**~~ Shipped — dual backend (Ollama + OpenRouter),
+  backend picker in NewChatSheet, free-only filter, API key in Settings.
+- ~~**Chat title is "New Chat" forever.**~~ Auto-generated titles from first message.
+- ~~**macOS menubar extra.**~~ Menubar quick-query popover with custom icon and Markdown rendering.
+- ~~**Chat folders.**~~ Sidebar folder organization with drag-and-drop.
+- ~~**Chat export.**~~ Share transcript, export as .md/.txt, per-message copy/share.
+- ~~**iOS jumbled layout (NavigationSplitView black gap).**~~ Fixed: added
+  `UILaunchStoryboardName` to Info.plist (was missing) + switched iOS to
+  `NavigationStack` + `.navigationDestination(item:)`.
 
 ## Future / Proposed
 
-15. **OpenRouter integration.** Add OpenRouter (cloud LLM models) as an
-    alternative provider alongside Ollama (local models). Users can switch
-    between providers in Settings.
-
-    - **Approach**: Protocol-based `LLMService` with `OllamaClient` and
-      `OpenRouterClient` implementations
-    - **Storage**: API key in Keychain (not UserDefaults)
-    - **Model list**: Fetch from OpenRouter API, filter to FREE models only
-    - **Files affected**: 7 files (see detailed plan in project docs)
+14. **Codebase context access.** Two milestones:
+    - **Milestone 1**: Read-only directory context — user grants a folder via
+      security-scoped bookmark; Spitfire attaches file contents to the system
+      prompt for coding assistance questions.
+    - **Milestone 2**: Read + write autonomous editing — Spitfire uses tool
+      calling to propose and apply file edits within the granted directory.

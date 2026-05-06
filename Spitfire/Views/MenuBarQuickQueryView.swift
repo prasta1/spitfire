@@ -38,8 +38,8 @@ struct MenuBarQuickQueryView: View {
             }
             actionRow
         }
-        .padding()
-        .frame(width: 360)
+        .padding(14)
+        .frame(width: 460)
         .task { await loadModels() }
     }
 
@@ -47,8 +47,11 @@ struct MenuBarQuickQueryView: View {
 
     private var headerRow: some View {
         HStack(spacing: 6) {
-            Image(systemName: "airplane.fill")
+            Image("MenuBarIcon")
+                .resizable()
+                .renderingMode(.template)
                 .foregroundStyle(.tint)
+                .frame(width: 22, height: 22)
             Text("Spitfire")
                 .font(.headline)
             Spacer()
@@ -74,7 +77,7 @@ struct MenuBarQuickQueryView: View {
     private var queryInputField: some View {
         TextField("Ask anything…", text: $queryText, axis: .vertical)
             .textFieldStyle(.roundedBorder)
-            .lineLimit(2...5)
+            .lineLimit(3...6)
             .disabled(isStreaming || availableModels.isEmpty)
             .onSubmit {
                 let trimmed = queryText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -90,7 +93,7 @@ struct MenuBarQuickQueryView: View {
                 .textSelection(.enabled)
                 .padding(8)
         }
-        .frame(maxHeight: 220)
+        .frame(maxHeight: 300)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 

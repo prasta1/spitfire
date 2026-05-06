@@ -29,7 +29,7 @@ struct SpitfireApp: App {
         #endif
 
         #if os(macOS)
-        MenuBarExtra("Spitfire", systemImage: "airplane.fill") {
+        MenuBarExtra("Spitfire", image: "MenuBarIcon") {
             MenuBarQuickQueryView()
                 .environment(appState)
         }

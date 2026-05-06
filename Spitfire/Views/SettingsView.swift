@@ -37,7 +37,7 @@ struct SettingsView: View {
             .onAppear { urlInput = appState.serverURL.absoluteString }
         }
         #if os(macOS)
-        .frame(minWidth: 380, idealWidth: 440, minHeight: 260, idealHeight: 300)
+        .frame(minWidth: 500, idealWidth: 540, minHeight: 340, idealHeight: 360)
         #endif
     }
 
@@ -49,6 +49,7 @@ struct SettingsView: View {
             SecureField("API Key", text: $bindable.openRouterAPIKey)
                 .noAutocapitalization()
                 .autocorrectionDisabled()
+                .truncationMode(.middle)
         }
     }
 
