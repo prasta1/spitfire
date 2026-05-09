@@ -44,9 +44,10 @@ struct ContentView: View {
 private struct ChatEmptyDetailView: View {
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "airplane")
-                .font(.system(size: 48))
-                .foregroundStyle(.tint)
+            Image("LaunchLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 160, height: 160)
             Text("Select a chat or start a new one")
                 .font(.headline)
                 .foregroundStyle(.secondary)

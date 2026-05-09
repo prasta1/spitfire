@@ -4,6 +4,7 @@ import SwiftUI
 struct ModelLabel: View {
     let model: OllamaModel
     var isLoaded: Bool = false
+    var isFavorite: Bool = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -13,6 +14,11 @@ struct ModelLabel: View {
                     .frame(width: 6, height: 6)
             }
             Text(model.name)
+            if isFavorite {
+                Image(systemName: "star.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.yellow)
+            }
             if let badges = model.capabilities?.badgeSymbols, !badges.isEmpty {
                 ForEach(badges, id: \.symbol) { badge in
                     Image(systemName: badge.symbol)

@@ -44,6 +44,7 @@ final class AppState {
         static let theme = "spitfire.theme"
         static let activeBackend = "spitfire.activeBackend"
         static let openRouterAPIKey = "spitfire.openRouterAPIKey"
+        static let favoriteModels = "spitfire.favoriteModels"
     }
 
     var serverURL: URL {
@@ -70,6 +71,23 @@ final class AppState {
     var openRouterAPIKey: String {
         didSet {
             UserDefaults.standard.set(openRouterAPIKey, forKey: Keys.openRouterAPIKey)
+        }
+    }
+
+    /// Model names the user has starred. Persisted across sessions.
+    var favoriteModels: Set<String> {
+        didSet {
+            UserDefaults.standard.set(Array(favoriteModels), forKey: Keys.favoriteModels)
+        }
+    }
+
+    func isFavorite(_ modelName: String) -> Bool { favoriteModels.contains(modelName) }
+
+    func toggleFavorite(_ modelName: String) {
+        if favoriteModels.contains(modelName) {
+            favoriteModels.remove(modelName)
+        } else {
+            favoriteModels.insert(modelName)
         }
     }
 
@@ -102,6 +120,9 @@ final class AppState {
         self.activeBackend = ActiveBackend(rawValue: backendRaw) ?? .ollama
 
         self.openRouterAPIKey = UserDefaults.standard.string(forKey: Keys.openRouterAPIKey) ?? ""
+
+        let favs = UserDefaults.standard.stringArray(forKey: Keys.favoriteModels) ?? []
+        self.favoriteModels = Set(favs)
 
         self.client = OllamaClient(baseURL: url)
     }

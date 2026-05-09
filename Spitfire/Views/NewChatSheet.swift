@@ -140,18 +140,25 @@ struct NewChatSheet: View {
                 Text(showFreeOnly ? "No free models available" : "No models installed on the server")
                     .foregroundStyle(.secondary)
             } else {
+                let sorted = filtered.sorted { a, b in
+                    let aFav = appState.isFavorite(a.name)
+                    let bFav = appState.isFavorite(b.name)
+                    if aFav != bFav { return aFav }
+                    return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+                }
                 Picker("Model", selection: $selectedModel) {
-                    ForEach(filtered) { model in
+                    ForEach(sorted) { model in
                         ModelLabel(
                             model: model,
-                            isLoaded: runningNames.contains(model.name)
+                            isLoaded: runningNames.contains(model.name),
+                            isFavorite: appState.isFavorite(model.name)
                         ).tag(model.name)
                     }
                 }
                 .onChange(of: showFreeOnly) { _, _ in
                     // Reset selection to first visible model when filter changes
-                    if !filtered.contains(where: { $0.name == selectedModel }),
-                       let first = filtered.first {
+                    if !sorted.contains(where: { $0.name == selectedModel }),
+                       let first = sorted.first {
                         selectedModel = first.name
                     }
                 }
