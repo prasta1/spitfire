@@ -16,6 +16,16 @@ import AppKit
 typealias PlatformImage = NSImage
 #endif
 
+extension Image {
+    init(platformImage: PlatformImage) {
+        #if os(iOS)
+        self.init(uiImage: platformImage)
+        #elseif os(macOS)
+        self.init(nsImage: platformImage)
+        #endif
+    }
+}
+
 // MARK: - Platform Colors
 
 extension Color {
