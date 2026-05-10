@@ -115,13 +115,18 @@ struct NewChatSheet: View {
         @Bindable var bindable = appState
 
         Section("Provider") {
-            Picker("Provider", selection: $bindable.activeBackend) {
-                ForEach(ActiveBackend.allCases) { backend in
-                    Text(backend.displayName).tag(backend)
+            HStack {
+                Spacer()
+                Picker("Provider", selection: $bindable.activeBackend) {
+                    ForEach(ActiveBackend.allCases) { backend in
+                        Text(backend.displayName).tag(backend)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                Spacer()
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
         }
     }
 
