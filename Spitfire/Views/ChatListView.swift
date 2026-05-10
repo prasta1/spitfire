@@ -11,10 +11,8 @@ struct ChatListView: View {
     @State private var showingSettings = false
     @State private var collapsedFolders: Set<UUID> = []
     @State private var activeFolder: FolderRecord? = nil
-    @State private var showingNewFolderAlert = false
-    @State private var newFolderName = ""
+    @State private var showingNewFolderSheet = false
     @State private var folderBeingRenamed: FolderRecord? = nil
-    @State private var renameFolderName = ""
     @State private var dropTargetFolderID: UUID? = nil
     @State private var dropTargetingUnfiled = false
 
@@ -29,7 +27,7 @@ struct ChatListView: View {
             }
 
             Button {
-                showingNewFolderAlert = true
+                showingNewFolderSheet = true
             } label: {
                 Label("New Folder", systemImage: "folder.badge.plus")
                     .font(.subheadline)
@@ -128,18 +126,15 @@ struct ChatListView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
             showingSettings = true
         }
-        .alert("New Folder", isPresented: $showingNewFolderAlert) {
-            TextField("Name", text: $newFolderName)
-            Button("Create") { createFolder() }
-            Button("Cancel", role: .cancel) { newFolderName = "" }
+        .sheet(isPresented: $showingNewFolderSheet) {
+            FolderEditSheet(mode: .create) { name, iconData in
+                createFolder(name: name, iconData: iconData)
+            }
         }
-        .alert("Rename Folder", isPresented: Binding(
-            get: { folderBeingRenamed != nil },
-            set: { if !$0 { folderBeingRenamed = nil } }
-        )) {
-            TextField("Name", text: $renameFolderName)
-            Button("Rename") { commitRename() }
-            Button("Cancel", role: .cancel) { folderBeingRenamed = nil }
+        .sheet(item: $folderBeingRenamed) { folder in
+            FolderEditSheet(mode: .rename(folder)) { name, iconData in
+                commitRename(folder: folder, name: name, iconData: iconData)
+            }
         }
     }
 
@@ -168,6 +163,13 @@ struct ChatListView: View {
                         Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                        if let data = folder.iconData, let img = PlatformImage(data: data) {
+                            Image(platformImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 18, height: 18)
+                                .clipShape(Circle())
+                        }
                         Text(folder.name)
                             .foregroundStyle(.primary)
                     }
@@ -179,7 +181,6 @@ struct ChatListView: View {
                 Menu {
                     Button("Rename") {
                         folderBeingRenamed = folder
-                        renameFolderName = folder.name
                     }
                     Button("Delete Folder", role: .destructive) {
                         deleteFolder(folder)
@@ -254,21 +255,17 @@ struct ChatListView: View {
         }
     }
 
-    private func createFolder() {
-        let trimmed = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
-        defer { newFolderName = "" }
-        guard !trimmed.isEmpty else { return }
-        let folder = FolderRecord(name: trimmed)
+    private func createFolder(name: String, iconData: Data?) {
+        let folder = FolderRecord(name: name)
+        folder.iconData = iconData
         context.insert(folder)
         try? context.save()
     }
 
-    private func commitRename() {
-        let trimmed = renameFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let folder = folderBeingRenamed else { return }
-        folder.name = trimmed
+    private func commitRename(folder: FolderRecord, name: String, iconData: Data?) {
+        folder.name = name
+        folder.iconData = iconData
         try? context.save()
-        folderBeingRenamed = nil
     }
 
     private func deleteFolder(_ folder: FolderRecord) {

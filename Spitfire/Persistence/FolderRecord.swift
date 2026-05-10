@@ -10,6 +10,7 @@ final class FolderRecord {
     var id: UUID
     var name: String
     var createdAt: Date
+    var iconData: Data?
 
     @Relationship(deleteRule: .nullify, inverse: \ChatRecord.folder)
     var chats: [ChatRecord] = []
