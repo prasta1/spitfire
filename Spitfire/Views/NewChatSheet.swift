@@ -49,6 +49,7 @@ struct NewChatSheet: View {
                         TextField("e.g. llama3.2", text: $manualName)
                             .noAutocapitalization()
                             .autocorrectionDisabled()
+                            .frostedRow()
                     } else {
                         modelPickerRow
                     }
@@ -70,6 +71,16 @@ struct NewChatSheet: View {
                 if case .failed = loadState, !manualEntry {
                     Section {
                         Button("Enter model name manually") { manualEntry = true }
+                            .frostedRow()
+                        Button {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                NotificationCenter.default.post(name: .openSettings, object: nil)
+                            }
+                        } label: {
+                            Label("Check server settings", systemImage: "gearshape")
+                        }
+                        .frostedRow()
                     }
                 }
 
@@ -83,10 +94,28 @@ struct NewChatSheet: View {
             }
             .navigationTitle("New Chat")
             .inlineNavigationTitle()
+            #if os(iOS)
+            .scrollContentBackground(.hidden)
+            #endif
             #if os(macOS)
             .formStyle(.grouped)
             #endif
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("New Chat")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.85, green: 0.20, blue: 0.0),
+                                    Color(red: 1.0, green: 0.62, blue: 0.08)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
@@ -105,6 +134,17 @@ struct NewChatSheet: View {
                 Task { await loadAll() }
             }
         }
+        #if os(iOS)
+        .presentationBackground {
+            ZStack {
+                Image("LaunchBackground")
+                    .resizable()
+                    .scaledToFill()
+                Color.black.opacity(0.25)
+            }
+            .ignoresSafeArea()
+        }
+        #endif
         #if os(macOS)
         .frame(minWidth: 420, idealWidth: 500, minHeight: 400, idealHeight: 520)
         #endif
@@ -127,6 +167,7 @@ struct NewChatSheet: View {
                 .fixedSize()
                 Spacer()
             }
+            .frostedRow()
         }
     }
 
@@ -139,11 +180,13 @@ struct NewChatSheet: View {
                 Spacer()
                 ProgressView()
             }
+            .frostedRow()
         case .loaded(let models):
             let filtered = showFreeOnly ? models.filter(\.isFree) : models
             if filtered.isEmpty {
                 Text(showFreeOnly ? "No free models available" : "No models installed on the server")
                     .foregroundStyle(.secondary)
+                    .frostedRow()
             } else {
                 let sorted = filtered.sorted { a, b in
                     let aFav = appState.isFavorite(a.name)
@@ -160,8 +203,11 @@ struct NewChatSheet: View {
                         ).tag(model.name)
                     }
                 }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frostedRow()
                 .onChange(of: showFreeOnly) { _, _ in
-                    // Reset selection to first visible model when filter changes
                     if !sorted.contains(where: { $0.name == selectedModel }),
                        let first = sorted.first {
                         selectedModel = first.name
@@ -174,6 +220,7 @@ struct NewChatSheet: View {
                     .foregroundStyle(.red)
                 Text(message).font(.footnote).foregroundStyle(.secondary)
             }
+            .frostedRow()
         }
     }
 
@@ -462,8 +509,11 @@ struct NewChatSheet: View {
             let models = try await appState.activeClient.listModels()
                 .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             loadState = .loaded(models)
-            if selectedModel.isEmpty, let first = models.first {
-                selectedModel = first.name
+            if selectedModel.isEmpty {
+                let candidates = showFreeOnly ? models.filter(\.isFree) : models
+                if let first = candidates.first ?? models.first {
+                    selectedModel = first.name
+                }
             }
         } catch {
             loadState = .failed(error.localizedDescription)

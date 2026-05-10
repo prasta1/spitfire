@@ -1,5 +1,11 @@
 import SwiftUI
 
+// MARK: - Notifications
+
+extension Notification.Name {
+    static let openSettings = Notification.Name("spitfire.openSettings")
+}
+
 // MARK: - Platform Image
 
 #if os(iOS)
@@ -79,6 +85,16 @@ extension View {
     func urlKeyboard() -> some View {
         #if os(iOS)
         self.keyboardType(.URL)
+        #else
+        self
+        #endif
+    }
+
+    /// Semi-transparent list row background matching the frosted card style used on iOS.
+    @ViewBuilder
+    func frostedRow() -> some View {
+        #if os(iOS)
+        self.listRowBackground(Color(.systemBackground).opacity(0.55))
         #else
         self
         #endif

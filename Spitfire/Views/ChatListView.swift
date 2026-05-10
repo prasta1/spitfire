@@ -37,6 +37,9 @@ struct ChatListView: View {
             }
             .buttonStyle(.plain)
             .padding(.vertical, 2)
+            #if os(iOS)
+            .listRowBackground(Color(.systemBackground).opacity(0.6))
+            #endif
 
             Section {
                 ForEach(unfiledChats) { chat in
@@ -61,8 +64,28 @@ struct ChatListView: View {
                 }
             }
         }
+        #if os(iOS)
+        .scrollContentBackground(.hidden)
+        .listRowBackground(Color.clear)
+        #endif
         .navigationTitle("Spitfire")
+        .inlineNavigationTitle()
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Spitfire")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.85, green: 0.20, blue: 0.0),
+                                Color(red: 1.0, green: 0.62, blue: 0.08)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            }
             #if os(iOS)
             ToolbarItem(placement: .topBarLeading) {
                 Button { showingSettings = true } label: {
@@ -101,6 +124,9 @@ struct ChatListView: View {
         }
         .onChange(of: selection) { _, newVal in
             activeFolder = newVal?.folder
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+            showingSettings = true
         }
         .alert("New Folder", isPresented: $showingNewFolderAlert) {
             TextField("Name", text: $newFolderName)
@@ -194,6 +220,9 @@ struct ChatListView: View {
         ChatListRow(chat: chat)
             .tag(chat)
             .draggable(chat.id.uuidString)
+            #if os(iOS)
+            .listRowBackground(Color(.systemBackground).opacity(0.6))
+            #endif
             .contextMenu {
                 if !folders.isEmpty {
                     Menu("Move to…") {

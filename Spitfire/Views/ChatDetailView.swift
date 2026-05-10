@@ -55,8 +55,8 @@ struct ChatDetailView: View {
     #endif
 
     var body: some View {
-        VStack(spacing: 0) {
-            messageList
+        messageList
+        .overlay(alignment: .bottom) {
             inputBar
         }
         .background {
@@ -138,51 +138,57 @@ struct ChatDetailView: View {
     @ViewBuilder
     private var messageList: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(chat.orderedMessages) { message in
-                        MessageBubbleView(message: message)
-                            .id(message.id)
-                            .contextMenu { contextMenu(for: message) }
+            VStack(spacing: 0) {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        ForEach(chat.orderedMessages) { message in
+                            MessageBubbleView(message: message)
+                                .id(message.id)
+                                .contextMenu { contextMenu(for: message) }
+                        }
+                        if let viewModel, viewModel.isStreaming {
+                            TypingIndicatorView()
+                                .id("typing")
+                        }
+                        if let error = viewModel?.errorMessage {
+                            Text(error)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                                .padding(.horizontal)
+                        }
+                        Color.clear.frame(height: 80)
                     }
-                    if let viewModel, viewModel.isStreaming {
-                        TypingIndicatorView()
-                            .id("typing")
-                    }
-                    if let error = viewModel?.errorMessage {
-                        Text(error)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .padding(.horizontal)
+                    .padding()
+                    .background(GeometryReader { geo in
+                        Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: geo.frame(in: .named("scroll")).minY)
+                    })
+                }
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    // Force button visible for now on macOS until scroll detection works
+                    #if os(macOS)
+                    isAtBottom = false
+                    #else
+                    isAtBottom = value >= -10
+                    #endif
+                }
+                .onChange(of: chat.orderedMessages.last?.content) { _, _ in
+                    guard let id = chat.orderedMessages.last?.id else { return }
+                    withAnimation { proxy.scrollTo(id, anchor: .bottom) }
+                }
+                .onChange(of: viewModel?.isStreaming) { _, isStreaming in
+                    if isStreaming == true {
+                        withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
                     }
                 }
-                .padding()
-                .background(GeometryReader { geo in
-                    Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: geo.frame(in: .named("scroll")).minY)
-                })
-            }
-            .coordinateSpace(name: "scroll")
-            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                // Force button visible for now on macOS until scroll detection works
-                #if os(macOS)
-                isAtBottom = false
-                #else
-                isAtBottom = value >= -10
-                #endif
-            }
-            .onChange(of: chat.orderedMessages.last?.content) { _, _ in
-                guard let id = chat.orderedMessages.last?.id else { return }
-                withAnimation { proxy.scrollTo(id, anchor: .bottom) }
-            }
-            .onChange(of: viewModel?.isStreaming) { _, isStreaming in
-                if isStreaming == true {
-                    withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
+                .overlay(alignment: .bottom) {
+                    if !isAtBottom {
+                        jumpToBottomButton(proxy: proxy)
+                            .padding(.bottom, 72)
+                            .transition(.scale(scale: 0.8).combined(with: .opacity))
+                    }
                 }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if !isAtBottom {
-                    jumpToBottomButton(proxy: proxy)
-                }
+                .animation(.spring(duration: 0.25), value: isAtBottom)
             }
         }
     }
@@ -196,18 +202,23 @@ struct ChatDetailView: View {
                 }
             }
         } label: {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 32, height: 32)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
-                .shadow(color: Color.accentColor.opacity(0.12), radius: 8)
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.down.to.line")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("Latest")
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
+            .shadow(color: Color.accentColor.opacity(0.1), radius: 8)
         }
         .buttonStyle(.plain)
-        .padding(.trailing, 16)
-        .padding(.bottom, 12)
+        .padding(.vertical, 6)
     }
 
     @ViewBuilder
@@ -239,21 +250,23 @@ struct ChatDetailView: View {
                             viewModel.send()
                         }
                     } label: {
-                        Image(systemName: viewModel.isStreaming ? "stop.circle" : "arrow.up.circle")
-                            .font(.system(size: 24))
-                            .foregroundStyle(canSend(viewModel) || viewModel.isStreaming ? Color.accentColor : Color.secondary.opacity(0.4))
+                        Image(systemName: viewModel.isStreaming ? "stop.fill" : "paperplane.fill")
+                            .font(.system(size: 17))
+                            .foregroundStyle(canSend(viewModel) || viewModel.isStreaming ? Color.accentColor : Color.secondary.opacity(0.3))
                     }
                     .disabled(!viewModel.isStreaming && !canSend(viewModel))
                 }
                 .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
                 .background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 26))
                 .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.white.opacity(0.1), lineWidth: 1))
                 .shadow(color: .accentColor.opacity(0.1), radius: 16, x: 0, y: 2)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
+            .background(.clear)
             #if os(iOS)
             .onChange(of: pickerSelection) { _, newValue in
                 guard let item = newValue else { return }
@@ -283,7 +296,7 @@ struct ChatDetailView: View {
         #if os(iOS)
         PhotosPicker(selection: $pickerSelection, matching: .images, photoLibrary: .shared()) {
             Image(systemName: "photo")
-                .font(.system(size: 22))
+                .font(.system(size: 17))
         }
         .disabled(viewModel.isStreaming)
         #else
@@ -291,7 +304,7 @@ struct ChatDetailView: View {
             showingFileImporter = true
         } label: {
             Image(systemName: "photo")
-                .font(.system(size: 22))
+                .font(.system(size: 17))
         }
         .disabled(viewModel.isStreaming)
         #endif

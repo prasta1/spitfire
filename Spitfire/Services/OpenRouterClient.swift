@@ -179,7 +179,10 @@ extension OpenRouterClient: SpitfireClient {
         var req = authorizedRequest(for: Self.baseURL.appending(path: "chat/completions"), method: "POST")
         req.httpBody = try Self.encoder.encode(body)
 
-        let (data, _) = try await session.data(for: req)
+        let (data, urlResponse) = try await session.data(for: req)
+        if let http = urlResponse as? HTTPURLResponse, http.statusCode != 200 {
+            throw OllamaError.http(status: http.statusCode, body: String(data: data, encoding: .utf8))
+        }
         let response = try Self.decoder.decode(ChatResponse.self, from: data)
         let content = response.choices.first?.message.content ?? ""
         return OllamaMessage(content: content, role: .assistant)
@@ -194,7 +197,12 @@ extension OpenRouterClient: SpitfireClient {
                     req.httpBody = try Self.encoder.encode(body)
 
                     let streamStart = Date()
-                    let (bytes, _) = try await session.bytes(for: req)
+                    let (bytes, urlResponse) = try await session.bytes(for: req)
+                    if let http = urlResponse as? HTTPURLResponse, http.statusCode != 200 {
+                        var errorData = Data()
+                        for try await byte in bytes { errorData.append(byte) }
+                        throw OllamaError.http(status: http.statusCode, body: String(data: errorData, encoding: .utf8))
+                    }
                     var completionTokens: Int? = nil
 
                     for try await line in bytes.lines {

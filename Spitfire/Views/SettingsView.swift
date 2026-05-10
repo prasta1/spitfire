@@ -1,3 +1,4 @@
+import Darwin
 import SwiftUI
 
 struct SettingsView: View {
@@ -17,6 +18,10 @@ struct SettingsView: View {
     @State private var registryModels: [RegistryModel] = []
     @State private var searchTask: Task<Void, Never>?
     @State private var expandedModel: String?
+    @State private var quickConnectHost: String = ""
+    @State private var isQuickConnecting: Bool = false
+    @State private var scanState: ScanState = .idle
+    @State private var discoveredServers: [URL] = []
 
     enum ConnectionState: Equatable {
         case idle
@@ -31,6 +36,8 @@ struct SettingsView: View {
         case failed(String)
     }
 
+    enum ScanState: Equatable { case idle, scanning, done }
+
     enum PullState: Equatable {
         case idle
         case pulling(String)
@@ -43,12 +50,16 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 serverSection
+                discoverSection
                 openRouterSection
                 appearanceSection
                 modelsSection
             }
             .navigationTitle("Settings")
             .inlineNavigationTitle()
+            #if os(iOS)
+            .scrollContentBackground(.hidden)
+            #endif
             #if os(macOS)
             .formStyle(.grouped)
             #endif
@@ -65,12 +76,74 @@ struct SettingsView: View {
             .onChange(of: appState.activeBackend) { _, _ in Task { await loadModels() } }
             .onChange(of: appState.serverURL) { _, _ in Task { await loadModels() } }
         }
+        #if os(iOS)
+        .presentationBackground {
+            ZStack {
+                Image("LaunchBackground")
+                    .resizable()
+                    .scaledToFill()
+                Color.black.opacity(0.25)
+            }
+            .ignoresSafeArea()
+        }
+        #endif
         #if os(macOS)
         .frame(minWidth: 500, idealWidth: 540, minHeight: 460, idealHeight: 480)
         #endif
     }
 
     // MARK: - Existing sections
+
+    @ViewBuilder
+    private var discoverSection: some View {
+        Section {
+            HStack {
+                TextField("Hostname or IP", text: $quickConnectHost)
+                    .noAutocapitalization()
+                    .autocorrectionDisabled()
+                    .onSubmit { Task { await tryQuickConnect() } }
+                if isQuickConnecting { ProgressView().controlSize(.small) }
+                Button("Connect") { Task { await tryQuickConnect() } }
+                    .disabled(quickConnectHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isQuickConnecting)
+            }
+            .frostedRow()
+
+            Button {
+                Task { await scanLocalNetwork() }
+            } label: {
+                HStack {
+                    Text("Scan local network")
+                    Spacer()
+                    if scanState == .scanning { ProgressView().controlSize(.small) }
+                }
+            }
+            .disabled(scanState == .scanning)
+            .frostedRow()
+
+            if !discoveredServers.isEmpty {
+                ForEach(discoveredServers, id: \.self) { url in
+                    Button {
+                        appState.serverURL = url
+                        connectionState = .idle
+                    } label: {
+                        Label(url.host() ?? url.absoluteString, systemImage: "server.rack")
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .frostedRow()
+                }
+            } else if scanState == .done {
+                Text("No Ollama servers found on this network.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frostedRow()
+            }
+        } header: {
+            Text("Discover")
+        } footer: {
+            Text("Enter a Tailscale hostname, a .local name, or an IP. Or scan your local network for Ollama instances.")
+        }
+    }
 
     @ViewBuilder
     private var openRouterSection: some View {
@@ -81,6 +154,7 @@ struct SettingsView: View {
                 .noAutocapitalization()
                 .autocorrectionDisabled()
                 .truncationMode(.middle)
+                .frostedRow()
         }
     }
 
@@ -96,6 +170,7 @@ struct SettingsView: View {
             .autocorrectionDisabled()
             .urlKeyboard()
             .onSubmit { commitURL() }
+            .frostedRow()
 
             Button {
                 test()
@@ -109,6 +184,7 @@ struct SettingsView: View {
                 }
             }
             .disabled(connectionState == .testing)
+            .frostedRow()
 
             connectionStatusRow
         } header: {
@@ -142,6 +218,7 @@ struct SettingsView: View {
                     Text(theme.displayName).tag(theme)
                 }
             }
+            .frostedRow()
         }
     }
 
@@ -157,10 +234,12 @@ struct SettingsView: View {
                     Spacer()
                     ProgressView()
                 }
+                .frostedRow()
             case .loaded(let models):
                 if models.isEmpty {
                     Text(appState.activeBackend == .openRouter ? "No models available" : "No models installed on the server")
                         .foregroundStyle(.secondary)
+                        .frostedRow()
                 } else {
                     let sorted = models.sorted { a, b in
                         let aFav = appState.isFavorite(a.name)
@@ -197,14 +276,16 @@ struct SettingsView: View {
                                 }
                             }
                         }
+                        .frostedRow()
                     }
                 }
             case .failed(let message):
                 Label(message, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.red)
+                    .frostedRow()
             }
         } header: {
-            Text("Installed Models")
+            Text(appState.activeBackend == .openRouter ? "Available Models" : "Installed Models")
         }
 
         if appState.activeBackend == .ollama && !runningModels.isEmpty {
@@ -232,6 +313,7 @@ struct SettingsView: View {
                             .buttonStyle(.borderless)
                         }
                     }
+                    .frostedRow()
                 }
             } header: {
                 Text("Loaded in Memory")
@@ -257,6 +339,7 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .frostedRow()
 
                 if !groupedSuggestions.isEmpty && !isPulling {
                     suggestionsView
@@ -272,21 +355,25 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(pullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPulling)
+                .frostedRow()
 
                 if case .progress(let status, let fraction) = pullState {
                     VStack(alignment: .leading, spacing: 4) {
                         ProgressView(value: fraction)
                         Text(status).font(.caption2).foregroundStyle(.tertiary)
                     }
+                    .frostedRow()
                 } else if case .pulling(let status) = pullState {
                     HStack {
                         ProgressView().controlSize(.small)
                         Text(status).font(.caption).foregroundStyle(.secondary)
                     }
+                    .frostedRow()
                 }
 
                 if case .failed(let message) = pullState {
                     Text(message).font(.footnote).foregroundStyle(.red)
+                        .frostedRow()
                 }
             } header: {
                 Text("Pull New Model")
@@ -493,6 +580,101 @@ struct SettingsView: View {
             guard !Task.isCancelled else { return }
             registryModels = await OllamaClient.searchRegistry(query: trimmed)
         }
+    }
+
+    // MARK: - Discovery
+
+    private func tryQuickConnect() async {
+        let host = quickConnectHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !host.isEmpty else { return }
+        isQuickConnecting = true
+        defer { isQuickConnecting = false }
+
+        let candidates: [URL]
+        if host.contains("://") {
+            candidates = [URL(string: host)].compactMap { $0 }
+        } else {
+            candidates = [
+                URL(string: "http://\(host):11434"),
+                URL(string: "http://\(host).local:11434"),
+                URL(string: "https://\(host):11434")
+            ].compactMap { $0 }
+        }
+
+        for url in candidates {
+            if let found = await Self.probeOllama(url) {
+                appState.serverURL = found
+                connectionState = .idle
+                return
+            }
+        }
+        connectionState = .failure("Could not reach Ollama at \"\(host)\"")
+    }
+
+    private func scanLocalNetwork() async {
+        scanState = .scanning
+        discoveredServers = []
+
+        var candidates: [URL] = [
+            URL(string: "http://localhost:11434"),
+            URL(string: "http://127.0.0.1:11434")
+        ].compactMap { $0 }
+
+        for subnet in localSubnets() {
+            for host in 1...254 {
+                if let url = URL(string: "http://\(subnet).\(host):11434") {
+                    candidates.append(url)
+                }
+            }
+        }
+
+        var found: [URL] = []
+        await withTaskGroup(of: URL?.self) { group in
+            for url in candidates {
+                group.addTask { await Self.probeOllama(url) }
+            }
+            for await result in group {
+                if let url = result { found.append(url) }
+            }
+        }
+
+        discoveredServers = found
+        scanState = .done
+    }
+
+    private static func probeOllama(_ url: URL) async -> URL? {
+        var req = URLRequest(url: url.appending(path: "api/version"))
+        req.timeoutInterval = 1.5
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            if (response as? HTTPURLResponse)?.statusCode == 200 { return url }
+        } catch {}
+        return nil
+    }
+
+    private func localSubnets() -> Set<String> {
+        var subnets = Set<String>()
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return subnets }
+        defer { freeifaddrs(first) }
+        var ptr: UnsafeMutablePointer<ifaddrs>? = first
+        while let iface = ptr {
+            let addr = iface.pointee.ifa_addr
+            if addr?.pointee.sa_family == UInt8(AF_INET) {
+                var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                getnameinfo(addr, socklen_t(MemoryLayout<sockaddr_in>.size),
+                            &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST)
+                let ip = String(cString: hostname)
+                if !ip.hasPrefix("127.") && !ip.hasPrefix("169.254.") {
+                    let parts = ip.split(separator: ".").map(String.init)
+                    if parts.count == 4 {
+                        subnets.insert("\(parts[0]).\(parts[1]).\(parts[2])")
+                    }
+                }
+            }
+            ptr = iface.pointee.ifa_next
+        }
+        return subnets
     }
 
     // MARK: - Server

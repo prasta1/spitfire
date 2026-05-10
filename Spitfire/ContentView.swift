@@ -12,6 +12,13 @@ struct ContentView: View {
         // gives the expected full-screen list → push behaviour.
         NavigationStack {
             ChatListView(selection: $selection)
+                .background {
+                    Image("LaunchBackground")
+                        .resizable()
+                        .scaledToFill()
+                        .ignoresSafeArea()
+                }
+                .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
                 .navigationDestination(item: $selection) { chat in
                     ChatDetailView(chat: chat).id(chat.id)
                 }
