@@ -57,8 +57,22 @@ struct ChatDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             messageList
-            Divider()
             inputBar
+        }
+        .background {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.07))
+                    .frame(width: 400, height: 400)
+                    .blur(radius: 90)
+                    .offset(x: 120, y: -140)
+                Circle()
+                    .fill(Color.cyan.opacity(0.04))
+                    .frame(width: 500, height: 500)
+                    .blur(radius: 110)
+                    .offset(x: -100, y: 180)
+            }
+            .allowsHitTesting(false)
         }
         .navigationTitle(chat.title)
         .inlineNavigationTitle()
@@ -182,15 +196,14 @@ struct ChatDetailView: View {
                 }
             }
         } label: {
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 36, height: 36)
-                
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
-            }
+            Image(systemName: "chevron.down")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 32, height: 32)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
+                .shadow(color: Color.accentColor.opacity(0.12), radius: 8)
         }
         .buttonStyle(.plain)
         .padding(.trailing, 16)
@@ -210,7 +223,7 @@ struct ChatDetailView: View {
                         get: { viewModel.inputText },
                         set: { viewModel.inputText = $0 }
                     ), axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
                         .lineLimit(1...4)
                         .disabled(viewModel.isStreaming)
                         .onSubmit {
@@ -226,14 +239,21 @@ struct ChatDetailView: View {
                             viewModel.send()
                         }
                     } label: {
-                        Image(systemName: viewModel.isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
-                            .font(.system(size: 28))
+                        Image(systemName: viewModel.isStreaming ? "stop.circle" : "arrow.up.circle")
+                            .font(.system(size: 24))
+                            .foregroundStyle(canSend(viewModel) || viewModel.isStreaming ? Color.accentColor : Color.secondary.opacity(0.4))
                     }
                     .disabled(!viewModel.isStreaming && !canSend(viewModel))
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 26))
+                .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                .shadow(color: .accentColor.opacity(0.1), radius: 16, x: 0, y: 2)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             #if os(iOS)
             .onChange(of: pickerSelection) { _, newValue in
                 guard let item = newValue else { return }
