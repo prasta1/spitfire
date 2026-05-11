@@ -71,6 +71,12 @@ targets:
         CFBundleShortVersionString: "0.1"
         CFBundleVersion: "1"
         ITSAppUsesNonExemptEncryption: false
+        UILaunchStoryboardName: LaunchScreen
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           NSExceptionDomains:
