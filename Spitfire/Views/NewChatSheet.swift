@@ -288,6 +288,7 @@ struct NewChatSheet: View {
                     .buttonStyle(.plain)
                 }
             }
+            .frostedRow()
 
             if !groupedSuggestions.isEmpty && !isPulling {
                 suggestionsView
@@ -303,6 +304,7 @@ struct NewChatSheet: View {
                 }
             }
             .disabled(pullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPulling)
+            .frostedRow()
 
             if case .progress(let status, let fraction) = pullState {
                 VStack(alignment: .leading, spacing: 4) {
@@ -311,6 +313,7 @@ struct NewChatSheet: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
+                .frostedRow()
             } else if case .pulling(let status) = pullState {
                 HStack {
                     ProgressView()
@@ -319,12 +322,14 @@ struct NewChatSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .frostedRow()
             }
 
             if case .failed(let message) = pullState {
                 Text(message)
                     .font(.footnote)
                     .foregroundStyle(.red)
+                    .frostedRow()
             }
         } header: {
             Text("Pull New Model")
@@ -340,8 +345,10 @@ struct NewChatSheet: View {
             DisclosureGroup(group.family) {
                 ForEach(group.models) { model in
                     modelSuggestionRow(model)
+                        .frostedRow()
                 }
             }
+            .frostedRow()
         }
     }
 
