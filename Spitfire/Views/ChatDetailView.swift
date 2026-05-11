@@ -47,6 +47,7 @@ struct ChatDetailView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var exportingMarkdown = false
     @State private var exportingPlainText = false
+    @FocusState private var inputFocused: Bool
     #if os(iOS)
     @State private var pickerSelection: PhotosPickerItem?
     #endif
@@ -112,6 +113,14 @@ struct ChatDetailView: View {
             if viewModel == nil {
                 viewModel = ChatDetailViewModel(chat: chat, context: context, client: appState.activeClient)
             }
+            #if os(iOS)
+            if chat.orderedMessages.isEmpty {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(350))
+                    inputFocused = true
+                }
+            }
+            #endif
         }
         .onDisappear { viewModel?.cancel() }
     }
@@ -164,6 +173,9 @@ struct ChatDetailView: View {
                     })
                 }
                 .coordinateSpace(name: "scroll")
+                #if os(iOS)
+                .scrollDismissesKeyboard(.interactively)
+                #endif
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                     // Force button visible for now on macOS until scroll detection works
                     #if os(macOS)
@@ -181,6 +193,12 @@ struct ChatDetailView: View {
                         withAnimation { proxy.scrollTo("typing", anchor: .bottom) }
                     }
                 }
+                .overlay {
+                    if chat.orderedMessages.isEmpty {
+                        emptyConversationView
+                            .transition(.opacity)
+                    }
+                }
                 .overlay(alignment: .bottom) {
                     if !isAtBottom {
                         jumpToBottomButton(proxy: proxy)
@@ -189,6 +207,7 @@ struct ChatDetailView: View {
                     }
                 }
                 .animation(.spring(duration: 0.25), value: isAtBottom)
+                .animation(.easeOut(duration: 0.2), value: chat.orderedMessages.isEmpty)
             }
         }
     }
@@ -222,6 +241,34 @@ struct ChatDetailView: View {
     }
 
     @ViewBuilder
+    private var emptyConversationView: some View {
+        let isOpenRouter = chat.model.contains("/")
+        let displayName = isOpenRouter
+            ? (chat.model.components(separatedBy: "/").last ?? chat.model)
+            : chat.model
+
+        VStack(spacing: 12) {
+            Circle()
+                .fill(isOpenRouter ? Color.indigo.opacity(0.15) : Color.teal.opacity(0.15))
+                .frame(width: 56, height: 56)
+                .overlay {
+                    Circle()
+                        .fill(isOpenRouter ? Color.indigo : Color.teal)
+                        .frame(width: 10, height: 10)
+                }
+            Text(displayName)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.bottom, 80)
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
     private var inputBar: some View {
         if let viewModel {
             VStack(spacing: 6) {
@@ -236,18 +283,24 @@ struct ChatDetailView: View {
                     ), axis: .vertical)
                         .textFieldStyle(.plain)
                         .lineLimit(1...4)
+                        .focused($inputFocused)
                         .disabled(viewModel.isStreaming)
+                        #if os(macOS)
                         .onSubmit {
                             if canSend(viewModel) && !viewModel.isStreaming {
                                 viewModel.send()
                             }
                         }
+                        #endif
 
                     Button {
                         if viewModel.isStreaming {
                             viewModel.cancel()
                         } else {
                             viewModel.send()
+                            #if os(iOS)
+                            inputFocused = true
+                            #endif
                         }
                     } label: {
                         Image(systemName: viewModel.isStreaming ? "stop.fill" : "paperplane.fill")
