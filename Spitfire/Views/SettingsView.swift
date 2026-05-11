@@ -389,8 +389,10 @@ struct SettingsView: View {
             DisclosureGroup(group.family) {
                 ForEach(group.models) { model in
                     modelSuggestionRow(model)
+                        .frostedRow()
                 }
             }
+            .frostedRow()
         }
     }
 
