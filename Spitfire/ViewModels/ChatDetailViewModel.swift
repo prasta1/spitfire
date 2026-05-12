@@ -76,6 +76,10 @@ final class ChatDetailViewModel {
                 }
                 try? self.context.save()
             } catch is CancellationError {
+                if assistantMessage.content.isEmpty {
+                    self.chat.messages.removeAll { $0.id == assistantMessage.id }
+                    self.context.delete(assistantMessage)
+                }
                 try? self.context.save()
             } catch {
                 self.errorMessage = error.localizedDescription
@@ -99,6 +103,7 @@ final class ChatDetailViewModel {
         guard !isStreaming else { return }
         guard let last = chat.orderedMessages.last(where: { $0.role == .assistant }) else { return }
 
+        let originalContent = last.content
         last.content = ""
         errorMessage = nil
 
@@ -126,6 +131,9 @@ final class ChatDetailViewModel {
                 }
                 try? self.context.save()
             } catch is CancellationError {
+                if last.content.isEmpty {
+                    last.content = originalContent
+                }
                 try? self.context.save()
             } catch {
                 self.errorMessage = error.localizedDescription
