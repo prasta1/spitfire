@@ -172,8 +172,8 @@ struct ChatDetailView: View {
                     })
                 }
                 .coordinateSpace(name: "scroll")
-                #if os(iOS)
                 .contentMargins(.bottom, 100, for: .scrollContent)
+                #if os(iOS)
                 .scrollDismissesKeyboard(.interactively)
                 #endif
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
