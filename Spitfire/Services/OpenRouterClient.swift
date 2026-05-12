@@ -137,7 +137,10 @@ struct OpenRouterClient {
 extension OpenRouterClient: SpitfireClient {
     func listModels() async throws -> [OllamaModel] {
         let url = Self.baseURL.appending(path: "models")
-        let (data, _) = try await session.data(for: authorizedRequest(for: url))
+        let (data, urlResponse) = try await session.data(for: authorizedRequest(for: url))
+        if let http = urlResponse as? HTTPURLResponse, http.statusCode != 200 {
+            throw OllamaError.http(status: http.statusCode, body: String(data: data, encoding: .utf8))
+        }
         let response = try Self.decoder.decode(ModelsResponse.self, from: data)
 
         let now = Date()
