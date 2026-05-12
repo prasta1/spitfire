@@ -20,6 +20,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
 enum ActiveBackend: String, CaseIterable, Identifiable {
     case ollama
     case openRouter
+    case lmStudio
 
     var id: String { rawValue }
 
@@ -27,6 +28,7 @@ enum ActiveBackend: String, CaseIterable, Identifiable {
         switch self {
         case .ollama: return "Ollama"
         case .openRouter: return "OpenRouter"
+        case .lmStudio: return "LM Studio"
         }
     }
 }
@@ -45,6 +47,9 @@ final class AppState {
         static let activeBackend = "spitfire.activeBackend"
         static let openRouterAPIKey = "spitfire.openRouterAPIKey"
         static let favoriteModels = "spitfire.favoriteModels"
+        static let menuBarModel = "spitfire.menuBarModel"
+        static let lmStudioURL = "spitfire.lmStudioURL"
+        static let messageFontSize = "spitfire.messageFontSize"
     }
 
     var serverURL: URL {
@@ -71,6 +76,27 @@ final class AppState {
     var openRouterAPIKey: String {
         didSet {
             UserDefaults.standard.set(openRouterAPIKey, forKey: Keys.openRouterAPIKey)
+        }
+    }
+
+    /// Base URL for the LM Studio local server. Default: http://localhost:1234
+    var lmStudioURL: URL {
+        didSet {
+            UserDefaults.standard.set(lmStudioURL.absoluteString, forKey: Keys.lmStudioURL)
+        }
+    }
+
+    var messageFontSize: Double {
+        didSet {
+            UserDefaults.standard.set(messageFontSize, forKey: Keys.messageFontSize)
+        }
+    }
+
+    /// Model used by the menubar quick-query popover. Persisted so it survives
+    /// popover close/reopen. Set automatically to first available on first load.
+    var menuBarModel: String {
+        didSet {
+            UserDefaults.standard.set(menuBarModel, forKey: Keys.menuBarModel)
         }
     }
 
@@ -105,6 +131,8 @@ final class AppState {
             return client
         case .openRouter:
             return OpenRouterClient(apiKey: openRouterAPIKey)
+        case .lmStudio:
+            return LMStudioClient(baseURL: lmStudioURL)
         }
     }
 
@@ -123,6 +151,13 @@ final class AppState {
 
         let favs = UserDefaults.standard.stringArray(forKey: Keys.favoriteModels) ?? []
         self.favoriteModels = Set(favs)
+
+        self.menuBarModel = UserDefaults.standard.string(forKey: Keys.menuBarModel) ?? ""
+
+        let lmRaw = UserDefaults.standard.string(forKey: Keys.lmStudioURL) ?? "http://localhost:1234"
+        self.lmStudioURL = URL(string: lmRaw) ?? URL(string: "http://localhost:1234")!
+
+        self.messageFontSize = UserDefaults.standard.object(forKey: Keys.messageFontSize) as? Double ?? 15.0
 
         self.client = OllamaClient(baseURL: url)
     }

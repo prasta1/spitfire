@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MessageBubbleView: View {
     let message: MessageRecord
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         HStack(alignment: .top) {
@@ -22,6 +23,7 @@ struct MessageBubbleView: View {
 
                 if !message.content.isEmpty {
                     Text(renderedContent)
+                        .font(.system(size: appState.messageFontSize))
                         .textSelection(.enabled)
                         .foregroundStyle(.primary)
                         .padding(.vertical, 10)

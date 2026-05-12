@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var urlInput: String = ""
+    @State private var lmStudioURLInput: String = ""
     @State private var connectionState: ConnectionState = .idle
 
     // Model management
@@ -49,9 +50,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                serverSection
-                discoverSection
-                openRouterSection
+                backendSection
+                connectionSection
                 appearanceSection
                 modelsSection
             }
@@ -67,14 +67,19 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         commitURL()
+                        commitLMStudioURL()
                         dismiss()
                     }
                 }
             }
-            .onAppear { urlInput = appState.serverURL.absoluteString }
+            .onAppear {
+                urlInput = appState.serverURL.absoluteString
+                lmStudioURLInput = appState.lmStudioURL.absoluteString
+            }
             .task { await loadModels() }
             .onChange(of: appState.activeBackend) { _, _ in Task { await loadModels() } }
             .onChange(of: appState.serverURL) { _, _ in Task { await loadModels() } }
+            .onChange(of: appState.lmStudioURL) { _, _ in Task { await loadModels() } }
         }
         #if os(iOS)
         .presentationBackground {
@@ -92,7 +97,36 @@ struct SettingsView: View {
         #endif
     }
 
-    // MARK: - Existing sections
+    // MARK: - Backend + connection sections
+
+    @ViewBuilder
+    private var backendSection: some View {
+        @Bindable var bindable = appState
+
+        Section("Backend") {
+            Picker("Provider", selection: $bindable.activeBackend) {
+                ForEach(ActiveBackend.allCases) { backend in
+                    Text(backend.displayName).tag(backend)
+                }
+            }
+            .frostedRow()
+        }
+    }
+
+    @ViewBuilder
+    private var connectionSection: some View {
+        switch appState.activeBackend {
+        case .ollama:
+            serverSection
+            discoverSection
+        case .lmStudio:
+            lmStudioSection
+        case .openRouter:
+            openRouterSection
+        }
+    }
+
+    // MARK: - Per-backend config sections
 
     @ViewBuilder
     private var discoverSection: some View {
@@ -142,6 +176,24 @@ struct SettingsView: View {
             Text("Discover")
         } footer: {
             Text("Enter a Tailscale hostname, a .local name, or an IP. Or scan your local network for Ollama instances.")
+        }
+    }
+
+    @ViewBuilder
+    private var lmStudioSection: some View {
+        Section {
+            TextField(text: $lmStudioURLInput, prompt: Text("http://localhost:1234")) {
+                Text("Server URL")
+            }
+            .noAutocapitalization()
+            .autocorrectionDisabled()
+            .urlKeyboard()
+            .onSubmit { commitLMStudioURL() }
+            .frostedRow()
+        } header: {
+            Text("LM Studio")
+        } footer: {
+            Text("Base URL of your LM Studio local server. Default: http://localhost:1234")
         }
     }
 
@@ -219,6 +271,13 @@ struct SettingsView: View {
                 }
             }
             .frostedRow()
+            Stepper(
+                "Font Size (\(Int(bindable.messageFontSize))pt)",
+                value: $bindable.messageFontSize,
+                in: 11...24,
+                step: 1
+            )
+            .frostedRow()
         }
     }
 
@@ -237,7 +296,14 @@ struct SettingsView: View {
                 .frostedRow()
             case .loaded(let models):
                 if models.isEmpty {
-                    Text(appState.activeBackend == .openRouter ? "No models available" : "No models installed on the server")
+                    let emptyText: String = {
+                        switch appState.activeBackend {
+                        case .openRouter: return "No models available"
+                        case .lmStudio: return "No models loaded in LM Studio"
+                        case .ollama: return "No models installed on the server"
+                        }
+                    }()
+                    Text(emptyText)
                         .foregroundStyle(.secondary)
                         .frostedRow()
                 } else {
@@ -285,7 +351,14 @@ struct SettingsView: View {
                     .frostedRow()
             }
         } header: {
-            Text(appState.activeBackend == .openRouter ? "Available Models" : "Installed Models")
+            let headerText: String = {
+                switch appState.activeBackend {
+                case .openRouter: return "Available Models"
+                case .lmStudio: return "Loaded Models"
+                case .ollama: return "Installed Models"
+                }
+            }()
+            Text(headerText)
         }
 
         if appState.activeBackend == .ollama && !runningModels.isEmpty {
@@ -687,6 +760,14 @@ struct SettingsView: View {
         if url != appState.serverURL {
             appState.serverURL = url
             connectionState = .idle
+        }
+    }
+
+    private func commitLMStudioURL() {
+        let trimmed = lmStudioURLInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed), url.scheme != nil else { return }
+        if url != appState.lmStudioURL {
+            appState.lmStudioURL = url
         }
     }
 

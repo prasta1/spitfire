@@ -13,8 +13,6 @@ struct MenuBarQuickQueryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
 
-    @State private var availableModels: [OllamaModel] = []
-    @State private var selectedModel: String = ""
     @State private var queryText: String = ""
     @State private var responseText: String = ""
     @State private var isStreaming: Bool = false
@@ -58,18 +56,16 @@ struct MenuBarQuickQueryView: View {
             if isLoadingModels {
                 ProgressView()
                     .controlSize(.small)
-            } else if availableModels.isEmpty {
-                Text("Ollama not reachable")
+            } else if appState.menuBarModel.isEmpty {
+                Text("No model available")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Picker("Model", selection: $selectedModel) {
-                    ForEach(availableModels, id: \.name) { model in
-                        Text(model.name).tag(model.name)
-                    }
-                }
-                .labelsHidden()
-                .frame(maxWidth: 190)
+                Text(appState.menuBarModel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
         }
     }
@@ -78,7 +74,7 @@ struct MenuBarQuickQueryView: View {
         TextField("Ask anything…", text: $queryText, axis: .vertical)
             .textFieldStyle(.roundedBorder)
             .lineLimit(3...6)
-            .disabled(isStreaming || availableModels.isEmpty)
+            .disabled(isStreaming || appState.menuBarModel.isEmpty)
             .onSubmit {
                 let trimmed = queryText.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty { sendQuery() }
@@ -86,14 +82,28 @@ struct MenuBarQuickQueryView: View {
     }
 
     private var responseArea: some View {
-        ScrollView {
-            renderedResponse
+        VStack(alignment: .leading, spacing: 0) {
+            if isStreaming && responseText.isEmpty {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Thinking…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .font(.body)
-                .textSelection(.enabled)
-                .padding(8)
+                .padding(10)
+            } else {
+                ScrollView {
+                    renderedResponse
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .font(.body)
+                        .textSelection(.enabled)
+                        .padding(8)
+                }
+                .frame(maxHeight: 300)
+            }
         }
-        .frame(maxHeight: 300)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
@@ -101,9 +111,7 @@ struct MenuBarQuickQueryView: View {
     /// for incomplete chunks during streaming that fail to parse.
     @ViewBuilder
     private var renderedResponse: some View {
-        if responseText.isEmpty {
-            Text("…").foregroundStyle(.secondary)
-        } else if let attributed = try? AttributedString(
+        if let attributed = try? AttributedString(
             markdown: responseText,
             options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .full)
         ) {
@@ -132,7 +140,7 @@ struct MenuBarQuickQueryView: View {
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(
                         queryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || selectedModel.isEmpty
+                            || appState.menuBarModel.isEmpty
                     )
             }
         }
@@ -144,19 +152,23 @@ struct MenuBarQuickQueryView: View {
         isLoadingModels = true
         defer { isLoadingModels = false }
         do {
-            let models = try await appState.client.listModels()
-            availableModels = models
-            if selectedModel.isEmpty, let first = models.first {
-                selectedModel = first.name
+            let models = try await appState.activeClient.listModels()
+            // Persist first available if no model is set yet, or if the saved
+            // model is no longer in the list (e.g. after a model is deleted).
+            let names = models.map(\.name)
+            if appState.menuBarModel.isEmpty || !names.contains(appState.menuBarModel),
+               let first = models.first {
+                appState.menuBarModel = first.name
             }
         } catch {
-            availableModels = []
+            // Leave menuBarModel as-is so the last known value survives transient errors.
         }
     }
 
     private func sendQuery() {
         let trimmed = queryText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !selectedModel.isEmpty else { return }
+        let model = appState.menuBarModel
+        guard !trimmed.isEmpty, !model.isEmpty else { return }
 
         responseText = ""
         errorMessage = nil
@@ -164,7 +176,7 @@ struct MenuBarQuickQueryView: View {
         queryText = ""
 
         // Persist chat and user message upfront
-        let chat = ChatRecord(model: selectedModel, title: String(trimmed.prefix(50)))
+        let chat = ChatRecord(model: model, title: String(trimmed.prefix(50)))
         modelContext.insert(chat)
         let userMsg = MessageRecord(content: trimmed, role: .user)
         userMsg.chat = chat
@@ -175,10 +187,10 @@ struct MenuBarQuickQueryView: View {
         let domainChat = chat.toDomain()
         let history = [OllamaMessage(content: trimmed, role: .user)]
 
-        streamTask = Task {
+        streamTask = Task { @MainActor in
             var accumulated = ""
             do {
-                let stream = appState.client.chatStream(messages: history, in: domainChat)
+                let stream = appState.activeClient.chatStream(messages: history, in: domainChat)
                 for try await chunk in stream {
                     try Task.checkCancellation()
                     accumulated += chunk.content
@@ -196,7 +208,7 @@ struct MenuBarQuickQueryView: View {
                 let assistantMsg = MessageRecord(
                     content: accumulated,
                     role: .assistant,
-                    model: selectedModel
+                    model: model
                 )
                 assistantMsg.chat = chat
                 modelContext.insert(assistantMsg)

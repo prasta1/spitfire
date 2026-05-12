@@ -101,6 +101,7 @@ struct ChatListView: View {
                 Button { showingNewChat = true } label: {
                     Label("New Chat", systemImage: "square.and.pencil")
                 }
+                .keyboardShortcut("n", modifiers: .command)
             }
         }
         .overlay {

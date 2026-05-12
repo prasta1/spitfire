@@ -26,6 +26,23 @@ struct SpitfireApp: App {
         .modelContainer(modelContainer)
         #if os(macOS)
         .defaultSize(width: 900, height: 600)
+        .commands {
+            CommandGroup(after: .toolbar) {
+                Divider()
+                Button("Increase Font Size") {
+                    appState.messageFontSize = min(appState.messageFontSize + 1, 24)
+                }
+                .keyboardShortcut("=", modifiers: .command)
+                Button("Decrease Font Size") {
+                    appState.messageFontSize = max(appState.messageFontSize - 1, 11)
+                }
+                .keyboardShortcut("-", modifiers: .command)
+                Button("Reset Font Size") {
+                    appState.messageFontSize = 15
+                }
+                .keyboardShortcut("0", modifiers: .command)
+            }
+        }
         #endif
 
         #if os(macOS)

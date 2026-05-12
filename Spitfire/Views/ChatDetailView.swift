@@ -48,6 +48,9 @@ struct ChatDetailView: View {
     @State private var exportingMarkdown = false
     @State private var exportingPlainText = false
     @FocusState private var inputFocused: Bool
+    @State private var showingFind = false
+    @State private var findText = ""
+    @FocusState private var findFocused: Bool
     #if os(iOS)
     @State private var pickerSelection: PhotosPickerItem?
     #endif
@@ -92,6 +95,12 @@ struct ChatDetailView: View {
             ToolbarItem(placement: .automatic) {
                 configButton
             }
+            ToolbarItem(placement: .automatic) {
+                Button(action: toggleFind) {
+                    Label("Find", systemImage: "magnifyingglass")
+                }
+                .keyboardShortcut("f", modifiers: .command)
+            }
             #endif
         }
         .sheet(isPresented: $showingConfig) {
@@ -123,6 +132,9 @@ struct ChatDetailView: View {
             #endif
         }
         .onDisappear { viewModel?.cancel() }
+        .onChange(of: showingFind) { _, isShowing in
+            if isShowing { findFocused = true }
+        }
     }
 
     private var configButton: some View {
@@ -148,9 +160,12 @@ struct ChatDetailView: View {
     private var messageList: some View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
+                if showingFind {
+                    findBar
+                }
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(chat.orderedMessages) { message in
+                        ForEach(displayedMessages) { message in
                             MessageBubbleView(message: message)
                                 .id(message.id)
                                 .contextMenu { contextMenu(for: message) }
@@ -291,6 +306,11 @@ struct ChatDetailView: View {
                                 viewModel.send()
                             }
                         }
+                        .onKeyPress(keys: [.return], phases: .down) { keyPress in
+                            guard keyPress.modifiers.contains(.shift) else { return .ignored }
+                            viewModel.inputText += "\n"
+                            return .handled
+                        }
                         #endif
 
                     Button {
@@ -426,5 +446,54 @@ struct ChatDetailView: View {
         #else
         Image(nsImage: image)
         #endif
+    }
+
+    // MARK: - Find
+
+    private var displayedMessages: [MessageRecord] {
+        guard !findText.isEmpty else { return chat.orderedMessages }
+        return chat.orderedMessages.filter {
+            $0.content.localizedCaseInsensitiveContains(findText)
+        }
+    }
+
+    @ViewBuilder private var findBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            TextField("Find in conversation…", text: $findText)
+                .textFieldStyle(.plain)
+                .focused($findFocused)
+                .onKeyPress(.escape) {
+                    closeFindBar()
+                    return .handled
+                }
+            if !findText.isEmpty {
+                Button { findText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            Button("Done") { closeFindBar() }
+                .buttonStyle(.plain)
+                .font(.subheadline)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private func toggleFind() {
+        showingFind.toggle()
+        if !showingFind { findText = "" }
+    }
+
+    private func closeFindBar() {
+        showingFind = false
+        findText = ""
+        inputFocused = true
     }
 }
