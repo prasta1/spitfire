@@ -165,7 +165,6 @@ struct ChatDetailView: View {
                                 .foregroundStyle(.red)
                                 .padding(.horizontal)
                         }
-                        Color.clear.frame(height: 80)
                     }
                     .padding()
                     .background(GeometryReader { geo in
@@ -174,6 +173,7 @@ struct ChatDetailView: View {
                 }
                 .coordinateSpace(name: "scroll")
                 #if os(iOS)
+                .contentMargins(.bottom, 100, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
                 #endif
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
