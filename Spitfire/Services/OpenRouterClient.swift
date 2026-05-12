@@ -218,7 +218,7 @@ extension OpenRouterClient: SpitfireClient {
                         guard let choice = chunk.choices.first else { continue }
 
                         let content = choice.delta.content ?? ""
-                        let isDone = choice.finishReason == "stop"
+                        let isDone = choice.finishReason != nil
 
                         var metadata: OllamaMessage.Metadata? = nil
                         if isDone {
