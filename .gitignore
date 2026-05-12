@@ -15,7 +15,11 @@ xcuserdata/
 *.dSYM
 
 # xcodegen — project file is generated, don't commit
-Rains.xcodeproj/
+Spitfire.xcodeproj/
+
+# Codex-generated files
+AGENTS.md
+Tuist.swift
 
 # Swift Package Manager
 .build/
