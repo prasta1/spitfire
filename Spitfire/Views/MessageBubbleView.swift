@@ -5,9 +5,6 @@ struct MessageBubbleView: View {
     var onRegenerate: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     @Environment(AppState.self) private var appState
-    #if os(macOS)
-    @State private var isHovered = false
-    #endif
 
     var body: some View {
         HStack(alignment: .top) {
@@ -65,15 +62,9 @@ struct MessageBubbleView: View {
                 #if os(macOS)
                 if message.role == .assistant {
                     actionBar
-                        .opacity(isHovered ? 1 : 0)
-                        .allowsHitTesting(isHovered)
                 }
                 #endif
             }
-            #if os(macOS)
-            .onHover { isHovered = $0 }
-            .animation(.easeInOut(duration: 0.12), value: isHovered)
-            #endif
 
             if message.role != .user { Spacer(minLength: 40) }
         }

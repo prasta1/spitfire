@@ -36,6 +36,20 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
     }
 }
 
+private struct SuggestionCard: Identifiable {
+    let id = UUID()
+    let title: String
+    let subtitle: String
+    let promptText: String
+}
+
+private let suggestionCards: [SuggestionCard] = [
+    SuggestionCard(title: "Write some code", subtitle: "Help me build a Swift function that…", promptText: "Help me write a Swift function that "),
+    SuggestionCard(title: "Explain a concept", subtitle: "Break down how async/await works", promptText: "Can you explain how async/await works in Swift?"),
+    SuggestionCard(title: "Summarize a topic", subtitle: "Give me the key points on…", promptText: "Summarize the key points of "),
+    SuggestionCard(title: "Help me debug", subtitle: "Here's an error I can't figure out…", promptText: "I'm getting this error and I'm not sure what's causing it:\n\n"),
+]
+
 struct ChatDetailView: View {
     @Bindable var chat: ChatRecord
     @Environment(\.modelContext) private var context
@@ -268,25 +282,63 @@ struct ChatDetailView: View {
             ? (chat.model.components(separatedBy: "/").last ?? chat.model)
             : chat.model
 
-        VStack(spacing: 12) {
-            Circle()
-                .fill(isOpenRouter ? Color.indigo.opacity(0.15) : Color.teal.opacity(0.15))
-                .frame(width: 56, height: 56)
-                .overlay {
-                    Circle()
-                        .fill(isOpenRouter ? Color.indigo : Color.teal)
-                        .frame(width: 10, height: 10)
-                }
-            Text(displayName)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+        VStack {
+            VStack(spacing: 12) {
+                Circle()
+                    .fill(isOpenRouter ? Color.indigo.opacity(0.15) : Color.teal.opacity(0.15))
+                    .frame(width: 56, height: 56)
+                    .overlay {
+                        Circle()
+                            .fill(isOpenRouter ? Color.indigo : Color.teal)
+                            .frame(width: 10, height: 10)
+                    }
+                Text(displayName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+            .allowsHitTesting(false)
+
+            Spacer()
+
+            suggestionCardsView
+                .padding(.bottom, 110)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.bottom, 80)
-        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private var suggestionCardsView: some View {
+        if let viewModel {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(suggestionCards) { card in
+                    Button {
+                        viewModel.inputText = card.promptText
+                        inputFocused = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(card.title)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.primary)
+                            Text(card.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
     }
 
     @ViewBuilder
