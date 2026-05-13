@@ -2,7 +2,12 @@ import SwiftUI
 
 struct MessageBubbleView: View {
     let message: MessageRecord
+    var onRegenerate: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
     @Environment(AppState.self) private var appState
+    #if os(macOS)
+    @State private var isHovered = false
+    #endif
 
     var body: some View {
         HStack(alignment: .top) {
@@ -56,7 +61,19 @@ struct MessageBubbleView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+
+                #if os(macOS)
+                if message.role == .assistant {
+                    actionBar
+                        .opacity(isHovered ? 1 : 0)
+                        .allowsHitTesting(isHovered)
+                }
+                #endif
             }
+            #if os(macOS)
+            .onHover { isHovered = $0 }
+            .animation(.easeInOut(duration: 0.12), value: isHovered)
+            #endif
 
             if message.role != .user { Spacer(minLength: 40) }
         }
@@ -132,4 +149,39 @@ struct MessageBubbleView: View {
         Image(nsImage: platformImage)
         #endif
     }
+
+    #if os(macOS)
+    private var actionBar: some View {
+        HStack(spacing: 14) {
+            actionButton("doc.on.doc", tooltip: "Copy") {
+                Clipboard.copy(message.content)
+            }
+            actionButton("doc.plaintext", tooltip: "Copy as Plain Text") {
+                Clipboard.copy(message.plainContent)
+            }
+            if let onRegenerate {
+                actionButton("arrow.clockwise", tooltip: "Regenerate", action: onRegenerate)
+            }
+            if let onDelete {
+                actionButton("trash", tooltip: "Delete", tint: .red.opacity(0.7), action: onDelete)
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    private func actionButton(
+        _ symbol: String,
+        tooltip: String,
+        tint: Color = .secondary,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(tint)
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
+    }
+    #endif
 }

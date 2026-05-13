@@ -166,9 +166,15 @@ struct ChatDetailView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         ForEach(displayedMessages) { message in
-                            MessageBubbleView(message: message)
-                                .id(message.id)
-                                .contextMenu { contextMenu(for: message) }
+                            let isLastAssistant = message.role == .assistant &&
+                                message.id == chat.orderedMessages.last(where: { $0.role == .assistant })?.id
+                            MessageBubbleView(
+                                message: message,
+                                onRegenerate: isLastAssistant ? { viewModel?.regenerateLastAssistant() } : nil,
+                                onDelete: { deleteMessage(message) }
+                            )
+                            .id(message.id)
+                            .contextMenu { contextMenu(for: message) }
                         }
                         if let viewModel, viewModel.isStreaming {
                             TypingIndicatorView()
@@ -415,6 +421,13 @@ struct ChatDetailView: View {
     private func canSend(_ viewModel: ChatDetailViewModel) -> Bool {
         let hasText = !viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return hasText || viewModel.pendingImage != nil
+    }
+
+    private func deleteMessage(_ message: MessageRecord) {
+        guard viewModel?.isStreaming != true else { return }
+        chat.messages.removeAll { $0.id == message.id }
+        context.delete(message)
+        try? context.save()
     }
 
     @ViewBuilder

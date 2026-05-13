@@ -7,9 +7,9 @@ import SwiftData
 /// chats are never deleted when their folder is removed.
 @Model
 final class FolderRecord {
-    var id: UUID
-    var name: String
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var createdAt: Date = Date()
     var iconData: Data?
 
     @Relationship(deleteRule: .nullify, inverse: \ChatRecord.folder)

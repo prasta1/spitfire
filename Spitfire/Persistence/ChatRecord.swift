@@ -13,11 +13,11 @@ import SwiftData
 /// only reliable path. The `options` computed property hides the verbosity.
 @Model
 final class ChatRecord {
-    var id: UUID
-    var model: String
-    var title: String
+    var id: UUID = UUID()
+    var model: String = ""
+    var title: String = "New Chat"
     var systemPrompt: String?
-    var createdAt: Date
+    var createdAt: Date = Date()
 
     // Flattened OllamaChatOptions fields. Defaults match Ollama's defaults.
     var optMirostat: Int = 0
